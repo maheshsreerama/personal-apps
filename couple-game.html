@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Love &amp; War 💕 Couple Game Night</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+  html, body { height:100%; overflow:hidden; touch-action:manipulation; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #1a0b2e 0%, #2d1144 45%, #451952 100%);
+    color:#fff;
+  }
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; overflow:hidden; }
+  .screen.active { display:flex; }
+
+  /* ---------- shared ---------- */
+  .topbar { display:flex; align-items:center; gap:12px; padding:14px 18px; flex-shrink:0; }
+  .topbar h2 { font-size:1.25rem; flex:1; text-align:center; }
+  .btn-back {
+    background:rgba(255,255,255,.12); border:none; color:#fff; font-size:1.1rem;
+    padding:8px 16px; border-radius:14px; cursor:pointer;
+  }
+  .spacer-btn { width:58px; }
+  .btn {
+    border:none; cursor:pointer; color:#fff; font-weight:700; border-radius:18px;
+    font-size:1.15rem; padding:16px 28px;
+    background:linear-gradient(135deg,#ff4d8d,#c9184a);
+    box-shadow:0 6px 20px rgba(255,77,141,.35);
+    transition:transform .1s;
+  }
+  .btn:active { transform:scale(.96); }
+  .btn.ghost { background:rgba(255,255,255,.12); box-shadow:none; }
+  .btn.big { font-size:1.4rem; padding:20px 40px; }
+  .fade-in { animation:fadeIn .4s ease both; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none} }
+  .pulse { animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+
+  /* ---------- setup ---------- */
+  #setup { align-items:center; justify-content:center; gap:22px; padding:24px; text-align:center; }
+  #setup .logo { font-size:3.2rem; }
+  #setup h1 { font-size:2rem; background:linear-gradient(90deg,#ff8fab,#ffd6e0); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #setup p.sub { color:#d8c7e8; margin-top:-8px; }
+  .name-row { display:flex; gap:14px; width:100%; max-width:520px; }
+  .name-card { flex:1; background:rgba(255,255,255,.08); border-radius:20px; padding:18px 14px; display:flex; flex-direction:column; gap:10px; align-items:center; }
+  .name-card input {
+    width:100%; border:none; border-radius:12px; padding:12px; font-size:1.1rem; text-align:center;
+    background:rgba(0,0,0,.3); color:#fff; outline:none;
+  }
+  .avatars { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .avatars button { font-size:1.5rem; background:transparent; border:2px solid transparent; border-radius:12px; padding:4px 6px; cursor:pointer; }
+  .avatars button.sel { border-color:#ff4d8d; background:rgba(255,77,141,.2); }
+
+  /* ---------- home ---------- */
+  #home { padding:0 0 12px; }
+  .score-banner {
+    margin:10px 18px; padding:14px 18px; border-radius:20px;
+    background:rgba(255,255,255,.08);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .score-banner .pl { display:flex; flex-direction:column; align-items:center; gap:2px; font-weight:700; }
+  .score-banner .pl .wins { font-size:1.5rem; color:#ff8fab; }
+  .score-banner .vs { font-size:1.3rem; opacity:.7; }
+  .game-grid { flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; padding:8px 18px 20px; align-content:start; }
+  .game-card {
+    background:rgba(255,255,255,.09); border:none; border-radius:22px; padding:20px 12px;
+    display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; color:#fff;
+    transition:transform .1s;
+  }
+  .game-card:active { transform:scale(.96); }
+  .game-card .icon { font-size:2.4rem; }
+  .game-card .name { font-weight:700; font-size:1.05rem; }
+  .game-card .desc { font-size:.8rem; color:#cdb8e0; text-align:center; line-height:1.3; }
+
+  /* ---------- split screens (face-to-face) ---------- */
+  .split { flex:1; display:flex; flex-direction:column; }
+  .half { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; position:relative; }
+  .half.flip { transform:rotate(180deg); }
+  .mid-bar {
+    flex-shrink:0; min-height:56px; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.35); font-weight:700; font-size:1.05rem; padding:8px 14px; text-align:center;
+  }
+  .tap-zone { position:absolute; inset:0; border:none; cursor:pointer; font-size:1.6rem; font-weight:800; color:#fff; }
+  .zone-wait { background:rgba(255,255,255,.05); }
+  .zone-go { background:linear-gradient(135deg,#06d6a0,#048a5e) !important; }
+  .zone-win { background:linear-gradient(135deg,#ffd166,#e0a500) !important; color:#3a2b00; }
+  .zone-lose { background:rgba(120,40,70,.5) !important; }
+  .round-dots { display:flex; gap:6px; position:absolute; bottom:10px; left:50%; transform:translateX(-50%); pointer-events:none; }
+  .half.flip .round-dots { bottom:10px; }
+  .round-dots span { width:12px; height:12px; border-radius:50%; background:rgba(255,255,255,.2); }
+  .round-dots span.won { background:#ffd166; }
+
+  /* likely game */
+  .likely-q { font-size:1.25rem; font-weight:700; text-align:center; max-width:420px; line-height:1.35; }
+  .vote-row { display:flex; gap:14px; }
+  .vote-btn {
+    border:none; border-radius:18px; padding:16px 24px; font-size:1.1rem; font-weight:700; color:#fff; cursor:pointer;
+    background:rgba(255,255,255,.14); min-width:120px;
+  }
+  .vote-btn.locked { background:linear-gradient(135deg,#ff4d8d,#c9184a); }
+  .locked-msg { font-size:1.1rem; color:#8ef0c8; font-weight:700; }
+  .result-big { font-size:1.5rem; font-weight:800; text-align:center; }
+  .result-sub { font-size:1.05rem; color:#e8d5f5; text-align:center; }
+
+  /* quiz */
+  .center-stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center; }
+  .quiz-q { font-size:1.35rem; font-weight:700; max-width:520px; line-height:1.4; }
+  .options { display:flex; flex-direction:column; gap:12px; width:100%; max-width:420px; }
+  .opt-btn {
+    border:none; border-radius:16px; padding:16px; font-size:1.1rem; font-weight:600; color:#fff; cursor:pointer;
+    background:rgba(255,255,255,.12); transition:transform .1s;
+  }
+  .opt-btn:active { transform:scale(.97); }
+  .opt-btn.correct { background:linear-gradient(135deg,#06d6a0,#048a5e); }
+  .opt-btn.wrong { background:linear-gradient(135deg,#ef476f,#a4133c); }
+  .handoff-emoji { font-size:3.5rem; }
+  .progress { font-size:.9rem; color:#cdb8e0; }
+
+  /* cards game */
+  .deck-stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; padding:24px; }
+  .turn-label { font-size:1.2rem; font-weight:700; color:#ffd6e0; }
+  .card3d {
+    width:min(80vw,380px); min-height:230px; border-radius:24px; padding:26px 22px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center;
+    background:linear-gradient(150deg,#3c1a5b,#5b2a86);
+    box-shadow:0 12px 40px rgba(0,0,0,.4);
+    animation:cardFlip .45s ease both;
+  }
+  @keyframes cardFlip { from{transform:rotateY(90deg); opacity:0} to{transform:rotateY(0); opacity:1} }
+  .card3d .ctype { font-size:.85rem; letter-spacing:2px; font-weight:800; text-transform:uppercase; }
+  .card3d .ctype.truth { color:#8ecae6; }
+  .card3d .ctype.spark { color:#ffb3c6; }
+  .card3d .ctext { font-size:1.3rem; font-weight:700; line-height:1.4; }
+  .pick-row { display:flex; gap:16px; }
+
+  /* memory */
+  #memGridWrap { flex:1; display:flex; align-items:center; justify-content:center; padding:12px; }
+  .mem-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; width:min(92vw, 62vh, 520px); }
+  .mem-card {
+    aspect-ratio:1; border:none; border-radius:16px; font-size:clamp(1.6rem,6vw,2.6rem); cursor:pointer;
+    background:linear-gradient(135deg,#5b2a86,#3c1a5b); color:transparent;
+    transition:transform .25s, background .25s;
+  }
+  .mem-card.up { background:rgba(255,255,255,.92); color:#000; transform:scale(1.06); }
+  .mem-card.done { background:rgba(6,214,160,.25); color:#fff; transform:none; }
+  .mem-status { display:flex; justify-content:space-around; padding:10px 18px; font-weight:700; flex-shrink:0; }
+  .mem-status .turnnow { color:#ffd166; }
+
+  /* overlay result */
+  #overlay {
+    position:absolute; inset:0; background:rgba(15,5,30,.88); display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; padding:24px; z-index:50;
+  }
+  #overlay.show { display:flex; }
+  #overlay .big { font-size:2.2rem; font-weight:800; }
+  #overlay .sub { font-size:1.15rem; color:#e8d5f5; max-width:420px; line-height:1.4; }
+
+  .heart-float { position:fixed; font-size:1.6rem; pointer-events:none; z-index:99; animation:floatUp 1.8s ease-out forwards; }
+  @keyframes floatUp { from{opacity:1; transform:translateY(0) scale(.6)} to{opacity:0; transform:translateY(-45vh) scale(1.4)} }
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP ============ -->
+<div class="screen active" id="setup">
+  <div class="logo pulse">💘</div>
+  <h1>Love &amp; War</h1>
+  <p class="sub">The couples game night — one tablet, two hearts</p>
+  <div class="name-row">
+    <div class="name-card">
+      <div class="avatars" id="av1"></div>
+      <input id="name1" maxlength="12" placeholder="Player 1 name">
+    </div>
+    <div class="name-card">
+      <div class="avatars" id="av2"></div>
+      <input id="name2" maxlength="12" placeholder="Player 2 name">
+    </div>
+  </div>
+  <button class="btn big" onclick="startApp()">Let's Play 💕</button>
+</div>
+
+<!-- ============ HOME ============ -->
+<div class="screen" id="home">
+  <div class="topbar"><h2>💘 Love &amp; War</h2></div>
+  <div class="score-banner">
+    <div class="pl"><span id="hAv1"></span><span id="hName1"></span><span class="wins" id="hWins1">0</span></div>
+    <div class="vs">game wins<br>⚔️</div>
+    <div class="pl"><span id="hAv2"></span><span id="hName2"></span><span class="wins" id="hWins2">0</span></div>
+  </div>
+  <div class="game-grid">
+    <button class="game-card" onclick="openGame('tap')"><span class="icon">⚡</span><span class="name">Tap Duel</span><span class="desc">Face-to-face reflex battle. First to tap wins!</span></button>
+    <button class="game-card" onclick="openGame('likely')"><span class="icon">🤔</span><span class="name">More Likely To…</span><span class="desc">Vote secretly. Do you two agree?</span></button>
+    <button class="game-card" onclick="openGame('quiz')"><span class="icon">💞</span><span class="name">Know Me Quiz</span><span class="desc">How well do you really know each other?</span></button>
+    <button class="game-card" onclick="openGame('cards')"><span class="icon">🔥</span><span class="name">Truth or Spark</span><span class="desc">Sweet questions &amp; playful dares.</span></button>
+    <button class="game-card" onclick="openGame('memory')"><span class="icon">🃏</span><span class="name">Heart Match</span><span class="desc">Memory duel — find the most pairs.</span></button>
+  </div>
+</div>
+
+<!-- ============ TAP DUEL ============ -->
+<div class="screen" id="tap">
+  <div class="split">
+    <div class="half flip">
+      <button class="tap-zone zone-wait" id="tapZone1" ontouchstart="tapHit(1,event)" onmousedown="tapHit(1,event)"></button>
+      <div class="round-dots" id="tapDots1"></div>
+    </div>
+    <div class="mid-bar" id="tapMid">⚡ Tap Duel</div>
+    <div class="half">
+      <button class="tap-zone zone-wait" id="tapZone2" ontouchstart="tapHit(2,event)" onmousedown="tapHit(2,event)"></button>
+      <div class="round-dots" id="tapDots2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MORE LIKELY ============ -->
+<div class="screen" id="likely">
+  <div class="split">
+    <div class="half flip" id="likelyHalf1"></div>
+    <div class="mid-bar" id="likelyMid">🤔 Who's more likely to…</div>
+    <div class="half" id="likelyHalf2"></div>
+  </div>
+</div>
+
+<!-- ============ QUIZ ============ -->
+<div class="screen" id="quiz">
+  <div class="topbar">
+    <button class="btn-back" onclick="confirmQuit()">✕</button>
+    <h2>💞 Know Me Quiz</h2><div class="spacer-btn"></div>
+  </div>
+  <div class="center-stage" id="quizStage"></div>
+</div>
+
+<!-- ============ CARDS ============ -->
+<div class="screen" id="cards">
+  <div class="topbar">
+    <button class="btn-back" onclick="goHome()">✕</button>
+    <h2>🔥 Truth or Spark</h2><div class="spacer-btn"></div>
+  </div>
+  <div class="deck-stage" id="deckStage"></div>
+</div>
+
+<!-- ============ MEMORY ============ -->
+<div class="screen" id="memory">
+  <div class="topbar">
+    <button class="btn-back" onclick="confirmQuit()">✕</button>
+    <h2>🃏 Heart Match</h2><div class="spacer-btn"></div>
+  </div>
+  <div class="mem-status"><span id="memS1"></span><span id="memS2"></span></div>
+  <div id="memGridWrap"><div class="mem-grid" id="memGrid"></div></div>
+</div>
+
+<!-- overlay -->
+<div id="overlay">
+  <div class="big" id="ovBig"></div>
+  <div class="sub" id="ovSub"></div>
+  <button class="btn" id="ovAgain">Play Again</button>
+  <button class="btn ghost" onclick="hideOverlay();goHome()">Home</button>
+</div>
+
+<script>
+/* =================== STATE =================== */
+const S = {
+  p1:{name:'Player 1', av:'🦊'},
+  p2:{name:'Player 2', av:'🐰'},
+  wins:{1:0,2:0}
+};
+const AVS = ['🦊','🐰','🐻','🐱','🦁','🐼','🐨','🦄'];
+try {
+  const saved = JSON.parse(localStorage.getItem('loveWar')||'null');
+  if (saved) Object.assign(S, saved);
+} catch(e){}
+function save(){ try{ localStorage.setItem('loveWar', JSON.stringify(S)); }catch(e){} }
+
+function $(id){ return document.getElementById(id); }
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function pName(n){ return (n===1?S.p1:S.p2).av + ' ' + (n===1?S.p1:S.p2).name; }
+
+function hearts(){
+  for(let i=0;i<10;i++){
+    const h=document.createElement('div');
+    h.className='heart-float';
+    h.textContent=['❤️','💖','💕','✨'][i%4];
+    h.style.left=(10+Math.random()*80)+'vw';
+    h.style.bottom=(5+Math.random()*30)+'vh';
+    h.style.animationDelay=(Math.random()*0.5)+'s';
+    document.body.appendChild(h);
+    setTimeout(()=>h.remove(),2500);
+  }
+}
+
+/* =================== SETUP =================== */
+function buildAvatars(el, player){
+  AVS.forEach(a=>{
+    const b=document.createElement('button');
+    b.textContent=a;
+    if ((player===1?S.p1:S.p2).av===a) b.classList.add('sel');
+    b.onclick=()=>{
+      (player===1?S.p1:S.p2).av=a;
+      el.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+    };
+    el.appendChild(b);
+  });
+}
+buildAvatars($('av1'),1); buildAvatars($('av2'),2);
+$('name1').value = S.p1.name==='Player 1' ? '' : S.p1.name;
+$('name2').value = S.p2.name==='Player 2' ? '' : S.p2.name;
+
+function startApp(){
+  S.p1.name = $('name1').value.trim() || 'Player 1';
+  S.p2.name = $('name2').value.trim() || 'Player 2';
+  save(); refreshHome(); show('home'); hearts();
+}
+function refreshHome(){
+  $('hName1').textContent=S.p1.name; $('hName2').textContent=S.p2.name;
+  $('hAv1').textContent=S.p1.av; $('hAv2').textContent=S.p2.av;
+  $('hAv1').style.fontSize='1.8rem'; $('hAv2').style.fontSize='1.8rem';
+  $('hWins1').textContent=S.wins[1]; $('hWins2').textContent=S.wins[2];
+}
+function goHome(){ refreshHome(); show('home'); }
+function confirmQuit(){ goHome(); }
+
+/* overlay */
+function showOverlay(big, sub, againFn){
+  $('ovBig').textContent=big; $('ovSub').textContent=sub;
+  $('ovAgain').onclick=()=>{ hideOverlay(); againFn(); };
+  $('overlay').classList.add('show');
+}
+function hideOverlay(){ $('overlay').classList.remove('show'); }
+function gameWin(winner){          // winner: 1, 2, or 0 for tie
+  if (winner) { S.wins[winner]++; save(); hearts(); }
+}
+
+function openGame(g){
+  hideOverlay();
+  if (g==='tap') startTap();
+  else if (g==='likely') startLikely();
+  else if (g==='quiz') startQuiz();
+  else if (g==='cards') startCards();
+  else if (g==='memory') startMemory();
+}
+
+/* =================== TAP DUEL =================== */
+const TAP_TARGET = 5;
+let tap = null;
+function startTap(){
+  tap = { score:{1:0,2:0}, phase:'idle', timer:null };
+  show('tap');
+  tapRound();
+}
+function tapDots(){
+  [1,2].forEach(p=>{
+    const el=$('tapDots'+p); el.innerHTML='';
+    for(let i=0;i<TAP_TARGET;i++){
+      const d=document.createElement('span');
+      if (i<tap.score[p]) d.classList.add('won');
+      el.appendChild(d);
+    }
+  });
+}
+function tapSetZones(cls, text){
+  [1,2].forEach(p=>{
+    const z=$('tapZone'+p);
+    z.className='tap-zone '+cls;
+    z.textContent=text;
+  });
+}
+function tapRound(){
+  tap.phase='wait';
+  tapDots();
+  $('tapMid').textContent = `⚡ First to ${TAP_TARGET} — wait for GREEN…`;
+  tapSetZones('zone-wait','Wait for it…');
+  clearTimeout(tap.timer);
+  tap.timer=setTimeout(()=>{
+    tap.phase='go';
+    tapSetZones('zone-go','TAP NOW!');
+  }, 1500+Math.random()*3000);
+}
+function tapHit(p, ev){
+  ev.preventDefault();
+  if (!tap) return;
+  if (tap.phase==='wait'){                 // false start — opponent takes the round
+    clearTimeout(tap.timer);
+    tapRoundEnd(p===1?2:1, `${pName(p)} jumped the gun! 😅`);
+  } else if (tap.phase==='go'){
+    tapRoundEnd(p, `${pName(p)} was faster! ⚡`);
+  }
+}
+function tapRoundEnd(winner, msg){
+  tap.phase='done';
+  tap.score[winner]++;
+  tapDots();
+  $('tapZone'+winner).className='tap-zone zone-win';
+  $('tapZone'+winner).textContent='+1 🏆';
+  const loser = winner===1?2:1;
+  $('tapZone'+loser).className='tap-zone zone-lose';
+  $('tapZone'+loser).textContent='';
+  $('tapMid').textContent = msg;
+  if (tap.score[winner]>=TAP_TARGET){
+    setTimeout(()=>{
+      gameWin(winner);
+      showOverlay(`${pName(winner)} wins! 🏆`,
+        `Reflex champion ${tap.score[1]}–${tap.score[2]}. Loser owes a kiss. 😘`,
+        startTap);
+    }, 900);
+  } else {
+    setTimeout(tapRound, 1400);
+  }
+}
+
+/* =================== MORE LIKELY =================== */
+const LIKELY_QS = [
+  "forget an anniversary?","cry during a movie?","survive a zombie apocalypse?",
+  "spend the whole paycheck in one day?","become famous?","get lost even with GPS?",
+  "talk their way out of a speeding ticket?","eat the last slice without asking?",
+  "adopt a random stray animal?","laugh at their own joke for 5 minutes?",
+  "check their phone first thing in the morning?","win a cooking competition?",
+  "dance in public with zero shame?","fall asleep during a movie night?",
+  "text back three days late?","plan a surprise trip?","start a fight over a board game?",
+  "give away money to a stranger?","sing loudly in the shower?","burn water while cooking?",
+  "keep a secret for years?","apologize first after an argument?","binge a whole series in one night?",
+  "become a millionaire?","trip over nothing?","flirt to get free stuff?",
+  "remember tiny details from your first date?","get scared by a horror movie?",
+  "spoil the ending of a show?","stay calm in an emergency?","talk to plants or pets like people?",
+  "buy something useless because it was on sale?","take 100 selfies to post one?",
+  "eat dessert before dinner?","re-read old chat messages at 2am?","say 'I love you' first in an argument?"
+];
+const LIKELY_ROUNDS = 10;
+let lk=null;
+function startLikely(){
+  lk = { qs:shuffle(LIKELY_QS).slice(0,LIKELY_ROUNDS), i:0, votes:{}, matches:0 };
+  show('likely');
+  likelyRound();
+}
+function likelyVoteUI(half, player){
+  const el=$(half);
+  el.innerHTML = `
+    <div class="likely-q">Who's more likely to<br>${esc(lk.qs[lk.i])}</div>
+    <div class="vote-row">
+      <button class="vote-btn" onclick="likelyVote(${player},1,this)">${esc(S.p1.av+' '+S.p1.name)}</button>
+      <button class="vote-btn" onclick="likelyVote(${player},2,this)">${esc(S.p2.av+' '+S.p2.name)}</button>
+    </div>`;
+}
+function likelyRound(){
+  lk.votes={};
+  $('likelyMid').textContent = `Question ${lk.i+1}/${LIKELY_ROUNDS} — vote secretly! · Agreed: ${lk.matches} 💕`;
+  likelyVoteUI('likelyHalf1',1);
+  likelyVoteUI('likelyHalf2',2);
+}
+function likelyVote(player, choice, btn){
+  if (lk.votes[player]!==undefined) return;
+  lk.votes[player]=choice;
+  const half=$( player===1?'likelyHalf1':'likelyHalf2');
+  half.innerHTML = `<div class="likely-q">Who's more likely to<br>${esc(lk.qs[lk.i])}</div><div class="locked-msg">✓ Locked in — waiting for your partner…</div>`;
+  if (lk.votes[1]!==undefined && lk.votes[2]!==undefined) likelyReveal();
+}
+function likelyReveal(){
+  const agree = lk.votes[1]===lk.votes[2];
+  if (agree) lk.matches++;
+  const chosen = agree ? pName(lk.votes[1]) : null;
+  [1,2].forEach(p=>{
+    const half=$('likelyHalf'+p);
+    half.innerHTML = agree
+      ? `<div class="result-big">💕 You agree!</div><div class="result-sub">You both picked <b>${esc(chosen)}</b></div>`
+      : `<div class="result-big">😄 You disagree!</div><div class="result-sub">${esc(pName(1))} said <b>${esc(pName(lk.votes[1]))}</b><br>${esc(pName(2))} said <b>${esc(pName(lk.votes[2]))}</b><br>Discuss…</div>`;
+  });
+  if (agree) hearts();
+  $('likelyMid').textContent = agree ? 'Great minds think alike! 💕' : 'Time to defend your answer 😄';
+  setTimeout(()=>{
+    lk.i++;
+    if (lk.i>=LIKELY_ROUNDS){
+      const pct=Math.round(lk.matches/LIKELY_ROUNDS*100);
+      let verdict = pct>=80 ? "Telepathic couple! 🧠💞" : pct>=50 ? "Pretty in sync! 💑" : "Opposites attract, right? 😜";
+      showOverlay(`In sync: ${pct}%`, `You agreed on ${lk.matches} of ${LIKELY_ROUNDS}. ${verdict}`, startLikely);
+    } else likelyRound();
+  }, 2600);
+}
+
+/* =================== KNOW ME QUIZ =================== */
+const QUIZ_QS = [
+  {q:"What's {P}'s dream vacation?", o:["Beach paradise 🏖️","Mountain adventure ⛰️","City lights &amp; food 🌆","Cozy cabin, no people 🛖"]},
+  {q:"{P}'s ideal Friday night?", o:["Movie &amp; takeout at home 🍕","Dinner date out 🍷","Party with friends 🎉","Early sleep, honestly 😴"]},
+  {q:"What would {P} grab in a house fire (people &amp; pets are safe)?", o:["Phone 📱","Photos / keepsakes 🖼️","Wallet &amp; documents 👛","Laptop 💻"]},
+  {q:"{P}'s comfort food?", o:["Something spicy 🌶️","Sweet treats 🍫","Cheesy &amp; greasy 🍟","Home-style classics 🍲"]},
+  {q:"If {P} won the lottery, first move?", o:["Travel the world ✈️","Buy a house 🏡","Save &amp; invest 📈","Shopping spree 🛍️"]},
+  {q:"{P}'s biggest pet peeve?", o:["Loud chewing 😬","Being late ⏰","Messiness 🧦","People interrupting 🗣️"]},
+  {q:"{P}'s hidden talent (or wish)?", o:["Singing 🎤","Cooking 👨‍🍳","Dancing 💃","Art / making things 🎨"]},
+  {q:"How does {P} handle stress?", o:["Talk it out 💬","Go quiet &amp; process 🤫","Distract with fun 🎮","Sleep on it 😴"]},
+  {q:"{P}'s love language?", o:["Words of affirmation 💌","Quality time ⏳","Acts of service 🛠️","Physical touch 🤗"]},
+  {q:"What superpower would {P} choose?", o:["Read minds 🧠","Fly ✈️","Time travel ⏰","Invisibility 👻"]},
+  {q:"{P}'s morning mood?", o:["Sunshine &amp; energy ☀️","Don't talk to me yet ☕","Slow but pleasant 🐢","Depends on the day 🎲"]},
+  {q:"{P} would rather…", o:["Never use social media again 📵","Never watch shows again 📺","Never eat sweets again 🚫🍰","Never sleep in again ⏰"]},
+];
+const QUIZ_ROUNDS = 8;
+let qz=null;
+function startQuiz(){
+  const qs = shuffle(QUIZ_QS).slice(0,QUIZ_ROUNDS);
+  qz = { qs, i:0, answer:null, phase:'handoff-a', score:{1:0,2:0}, matches:0 };
+  show('quiz');
+  quizRender();
+}
+function quizSubject(){ return (qz.i%2===0)?1:2; }   // whose truth this round
+function quizRender(){
+  const st=$('quizStage');
+  const subj=quizSubject(), guesser=subj===1?2:1;
+  const q=qz.qs[qz.i].q.replace('{P}', esc((subj===1?S.p1:S.p2).name));
+  if (qz.phase==='handoff-a'){
+    st.innerHTML=`<div class="handoff-emoji">🤫</div>
+      <div class="quiz-q">Hand the tablet to<br><b>${esc(pName(subj))}</b></div>
+      <div class="progress">${esc((subj===1?S.p2:S.p1).name)}, no peeking!</div>
+      <button class="btn big" onclick="qzPhase('answer')">I'm ${esc((subj===1?S.p1:S.p2).name)} — Ready</button>
+      <div class="progress">Question ${qz.i+1} of ${QUIZ_ROUNDS}</div>`;
+  } else if (qz.phase==='answer'){
+    st.innerHTML=`<div class="quiz-q">${q}</div>
+      <div class="progress">Answer honestly — your partner will guess this.</div>
+      <div class="options">${qz.qs[qz.i].o.map((o,idx)=>`<button class="opt-btn" onclick="qzAnswer(${idx})">${o}</button>`).join('')}</div>`;
+  } else if (qz.phase==='handoff-b'){
+    st.innerHTML=`<div class="handoff-emoji">🔄</div>
+      <div class="quiz-q">Now hand it to<br><b>${esc(pName(guesser))}</b></div>
+      <button class="btn big" onclick="qzPhase('guess')">I'm ${esc((guesser===1?S.p1:S.p2).name)} — Ready</button>`;
+  } else if (qz.phase==='guess'){
+    st.innerHTML=`<div class="quiz-q">${q}</div>
+      <div class="progress">What did ${esc((subj===1?S.p1:S.p2).name)} pick?</div>
+      <div class="options">${qz.qs[qz.i].o.map((o,idx)=>`<button class="opt-btn" onclick="qzGuess(${idx},this)">${o}</button>`).join('')}</div>`;
+  }
+}
+function qzPhase(p){ qz.phase=p; quizRender(); }
+function qzAnswer(idx){ qz.answer=idx; qz.phase='handoff-b'; quizRender(); }
+function qzGuess(idx, btn){
+  const subj=quizSubject(), guesser=subj===1?2:1;
+  const right = idx===qz.answer;
+  const opts=document.querySelectorAll('#quizStage .opt-btn');
+  opts.forEach(b=>b.disabled=true);
+  opts[qz.answer].classList.add('correct');
+  if (!right) btn.classList.add('wrong');
+  if (right){ qz.score[guesser]++; qz.matches++; hearts(); }
+  setTimeout(()=>{
+    qz.i++;
+    if (qz.i>=QUIZ_ROUNDS){
+      const s1=qz.score[1], s2=qz.score[2];
+      const winner = s1>s2?1 : s2>s1?2 : 0;
+      if (winner) gameWin(winner);
+      const title = winner ? `${pName(winner)} knows best! 🏆` : "Perfectly matched! 💞";
+      showOverlay(title, `${S.p1.name} guessed ${s1} right, ${S.p2.name} guessed ${s2} right — ${qz.matches}/${QUIZ_ROUNDS} total. ${qz.matches>=6?'You two are soulmates! 💍':'More date nights needed 😉'}`, startQuiz);
+    } else { qz.phase='handoff-a'; qz.answer=null; quizRender(); }
+  }, 1600);
+}
+
+/* =================== TRUTH OR SPARK =================== */
+const TRUTHS = [
+  "What was your first impression of me — the honest version?",
+  "What's your favorite memory of us so far?",
+  "What little thing do I do that secretly melts you?",
+  "What song reminds you of me?",
+  "Where do you see us in five years?",
+  "What's one thing you've never told me but always wanted to?",
+  "What moment did you realize you liked me?",
+  "What's my most attractive quality — besides looks?",
+  "If we could relive one day together, which one?",
+  "What's one thing I do that always makes you laugh?",
+  "What's your favorite thing I've ever said to you?",
+  "What dream trip do you want us to take?",
+  "What's one habit of mine you find weirdly cute?",
+  "What are you most proud of me for?",
+  "What's the best gift I've ever given you — and why?",
+  "What food reminds you of our early days?",
+  "If our love story was a movie, what would it be called?",
+  "What's one fear you have that I make better?",
+  "What do you want more of from me?",
+  "What tiny detail about me do you remember that I'd never expect?"
+];
+const SPARKS = [
+  "Give your partner a compliment you've never given before.",
+  "Do your best impression of your partner. They must rate it /10.",
+  "Hold eye contact for 30 seconds. No laughing. (Impossible.)",
+  "Serenade your partner with any song for 20 seconds.",
+  "Give your partner a 1-minute shoulder massage.",
+  "Say 'I love you' in 3 different dramatic movie styles.",
+  "Let your partner pose you for a photo of their choice.",
+  "Whisper something sweet in your partner's ear.",
+  "Slow dance together for one minute — no music needed.",
+  "Recreate your very first photo together (or your first pose).",
+  "Feed your partner an imaginary five-star dessert, with commentary.",
+  "Plan next weekend's date out loud in 30 seconds. It's now official.",
+  "Give your partner a forehead kiss and a hug for 10 seconds.",
+  "Describe your partner using only food words.",
+  "Do 10 seconds of your most embarrassing dance move.",
+  "Trade phones and let them pick your next wallpaper. Trust!",
+  "Speak in a fake accent until your next turn.",
+  "Tell your partner three things you're grateful for about them.",
+  "Draw a portrait of your partner in 30 seconds — air-drawing counts.",
+  "Let your partner give you a new pet name. You must use it tonight."
+];
+let cd=null;
+function startCards(){
+  cd = { turn:1, truths:shuffle(TRUTHS), sparks:shuffle(SPARKS), ti:0, si:0 };
+  show('cards');
+  cardsPick();
+}
+function cardsPick(){
+  $('deckStage').innerHTML = `
+    <div class="turn-label">${esc(pName(cd.turn))}'s turn</div>
+    <div class="handoff-emoji">🎴</div>
+    <div class="pick-row">
+      <button class="btn big" style="background:linear-gradient(135deg,#219ebc,#126782)" onclick="drawCard('truth')">💬 Truth</button>
+      <button class="btn big" onclick="drawCard('spark')">🔥 Spark</button>
+    </div>`;
+}
+function drawCard(type){
+  let text;
+  if (type==='truth'){ text=cd.truths[cd.ti % cd.truths.length]; cd.ti++; }
+  else { text=cd.sparks[cd.si % cd.sparks.length]; cd.si++; }
+  $('deckStage').innerHTML = `
+    <div class="turn-label">${esc(pName(cd.turn))}</div>
+    <div class="card3d">
+      <div class="ctype ${type}">${type==='truth'?'💬 truth':'🔥 spark'}</div>
+      <div class="ctext">${esc(text)}</div>
+    </div>
+    <button class="btn" onclick="cardDone()">Done ✓ Next Turn</button>`;
+}
+function cardDone(){ cd.turn = cd.turn===1?2:1; cardsPick(); }
+
+/* =================== HEART MATCH =================== */
+const MEM_EMO = ['❤️','😘','🌹','💍','🍫','🔥','💌','🥂'];
+let mm=null;
+function startMemory(){
+  const cards = shuffle(MEM_EMO.concat(MEM_EMO)).map((e,i)=>({e, id:i, up:false, done:false}));
+  mm = { cards, turn:1, flipped:[], score:{1:0,2:0}, lock:false };
+  show('memory');
+  memRender();
+}
+function memRender(){
+  const g=$('memGrid'); g.innerHTML='';
+  mm.cards.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='mem-card'+(c.done?' done':(c.up?' up':''));
+    b.textContent = (c.up||c.done)?c.e:'💜';
+    b.onclick=()=>memFlip(i);
+    g.appendChild(b);
+  });
+  $('memS1').innerHTML = (mm.turn===1?'👉 ':'')+`<span class="${mm.turn===1?'turnnow':''}">${esc(pName(1))}: ${mm.score[1]}</span>`;
+  $('memS2').innerHTML = (mm.turn===2?'👉 ':'')+`<span class="${mm.turn===2?'turnnow':''}">${esc(pName(2))}: ${mm.score[2]}</span>`;
+}
+function memFlip(i){
+  if (mm.lock) return;
+  const c=mm.cards[i];
+  if (c.up||c.done) return;
+  c.up=true; mm.flipped.push(i); memRender();
+  if (mm.flipped.length===2){
+    mm.lock=true;
+    const [a,b]=mm.flipped.map(x=>mm.cards[x]);
+    setTimeout(()=>{
+      if (a.e===b.e){
+        a.done=b.done=true; a.up=b.up=false;
+        mm.score[mm.turn]++;                 // match: same player goes again
+      } else {
+        a.up=b.up=false;
+        mm.turn = mm.turn===1?2:1;
+      }
+      mm.flipped=[]; mm.lock=false; memRender();
+      if (mm.cards.every(x=>x.done)){
+        const w = mm.score[1]>mm.score[2]?1 : mm.score[2]>mm.score[1]?2 : 0;
+        if (w) gameWin(w);
+        showOverlay(
+          w ? `${pName(w)} wins! 🏆` : "It's a tie! 💞",
+          `Pairs — ${S.p1.name}: ${mm.score[1]} · ${S.p2.name}: ${mm.score[2]}. ${w?'Winner picks the next movie. 🎬':'Split the popcorn. 🍿'}`,
+          startMemory);
+      }
+    }, a.e===b.e?450:900);
+  }
+}
+</script>
+</body>
+</html>
