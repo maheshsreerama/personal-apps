@@ -1,0 +1,251 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring Bean Lifecycle — Revision Notes</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<header class="page">
+  <a href="../index.html">&larr; All topics</a>
+  <h1>Spring Bean Lifecycle</h1>
+  <p>Container bootstrap &middot; BeanPostProcessors &middot; proxies &middot; scopes &middot; circular deps</p>
+</header>
+
+<main>
+
+<h2>1. Mental Map</h2>
+<pre class="mermaid">
+flowchart TD
+    CTX[ApplicationContext refresh] --> SCAN[Scan and register BeanDefinitions]
+    SCAN --> BFPP[BeanFactoryPostProcessors run]:::high
+    BFPP --> LOOP[For each singleton, eagerly:]
+    LOOP --> INST[1. Instantiate via constructor]:::high
+    INST --> POP[2. Populate: inject fields and setters]:::high
+    POP --> AW[3. Aware callbacks]
+    AW --> BPPB[4. BeanPostProcessor before-init]
+    BPPB --> INIT[5. Init: PostConstruct, afterPropertiesSet, initMethod]:::high
+    INIT --> BPPA[6. BeanPostProcessor after-init: PROXIES created here]:::high
+    BPPA --> READY[Bean in singleton cache, ready]
+    READY --> USE[Application runs]
+    USE --> DESTROY[Shutdown: PreDestroy, destroy]:::high
+    CTX -.-> CIRC[Circular deps: 3-level cache]:::high
+    CTX -.-> SCOPE[Scopes: singleton, prototype, request...]
+    classDef high fill:#fbbf24,stroke:#b45309,stroke-width:2px,color:#1f2530;
+</pre>
+<p class="muted">Amber = HIGH frequency. The single most-asked thing: the ordered lifecycle callbacks and where AOP proxies come from.</p>
+
+<h2>2. The Fundamentals</h2>
+
+<h3>2.1 What the container really is <span class="badge high">HIGH</span></h3>
+<p><b>What:</b> <code>ApplicationContext</code> wraps a <code>DefaultListableBeanFactory</code>: essentially a <code>Map&lt;String, BeanDefinition&gt;</code> (recipes) plus a <code>Map&lt;String, Object&gt;</code> singleton cache (cooked beans). A <b>BeanDefinition</b> is metadata: class, scope, constructor args, dependencies, init/destroy methods, lazy flag.
+<b>Why:</b> separating <i>recipe registration</i> from <i>instantiation</i> lets Spring post-process definitions (e.g. property placeholders) before any object exists, and lets it order creation by dependency graph.</p>
+<div class="say">The container is two maps — BeanDefinitions (recipes) and the singleton cache (instances) — and refresh() turns one into the other in dependency order.</div>
+
+<h3>2.2 Bootstrap order inside refresh() <span class="badge nice">know it</span></h3>
+<p>1) Component scanning / config-class parsing registers BeanDefinitions. 2) <b>BeanFactoryPostProcessors</b> run — they edit <i>definitions</i> before beans exist (this is how <code>@Value</code> placeholders and <code>@ConfigurationProperties</code> binding infrastructure get wired). 3) BeanPostProcessors are instantiated first (they must exist to process everyone else). 4) All non-lazy singletons are eagerly created via <code>preInstantiateSingletons()</code>.</p>
+<div class="say">BeanFactoryPostProcessors mutate recipes; BeanPostProcessors mutate instances — and that ordering is why post-processors themselves are created first.</div>
+
+<h3>2.3 The per-bean lifecycle — exact order <span class="badge high">HIGH</span></h3>
+<pre class="mermaid">
+flowchart TD
+    A[Constructor runs - constructor injection happens here]:::high --> B[Dependency injection: Autowired fields / setters]:::high
+    B --> C[BeanNameAware / BeanFactoryAware / ApplicationContextAware]
+    C --> D[BPP postProcessBeforeInitialization]
+    D --> E[PostConstruct method]:::high
+    E --> F[InitializingBean.afterPropertiesSet]
+    F --> G[Bean initMethod attribute]
+    G --> H[BPP postProcessAfterInitialization - AOP proxy wrapping]:::high
+    H --> I[In use]
+    I --> J[PreDestroy]:::high
+    J --> K[DisposableBean.destroy]
+    K --> L[destroyMethod attribute]
+    classDef high fill:#fbbf24,stroke:#b45309,stroke-width:2px,color:#1f2530;
+</pre>
+<p><b>Why three init hooks?</b> History: <code>afterPropertiesSet</code> (interface, couples you to Spring), <code>init-method</code> (XML era, decoupled), <code>@PostConstruct</code> (JSR-250 standard — the one to use). All three can coexist; they run in the order above.</p>
+<p><b>Key implication:</b> in the constructor your <code>@Autowired</code> <i>fields</i> are still null (field injection happens after construction). Anything needing injected state goes in <code>@PostConstruct</code> — or better, use constructor injection so the object is never in a half-built state.</p>
+<div class="say">Order: constructor → injection → Aware → BPP-before → @PostConstruct → afterPropertiesSet → init-method → BPP-after (where proxies wrap) → ... → @PreDestroy on shutdown.</div>
+
+<h3>2.4 BeanPostProcessors — where the magic lives <span class="badge high">HIGH</span></h3>
+<p><b>What:</b> an interface with two callbacks invoked around every bean's init phase. Nearly every "magic" annotation is a BPP: <code>AutowiredAnnotationBeanPostProcessor</code> (@Autowired/@Value), <code>CommonAnnotationBeanPostProcessor</code> (@PostConstruct/@PreDestroy), and <code>AnnotationAwareAspectJAutoProxyCreator</code> — which, in <code>postProcessAfterInitialization</code>, returns a <b>proxy</b> instead of your bean when advice applies (@Transactional, @Async, @Cacheable, security annotations).</p>
+<p><b>Why after-init?</b> The real object must be fully initialized before being wrapped; the container then caches and injects the <i>proxy</i>, so every other bean talks through the interceptor chain.</p>
+<div class="say">Spring's annotation magic is just BeanPostProcessors — and AOP is one that swaps your fully-initialized bean for a proxy in postProcessAfterInitialization, which is exactly why self-invocation bypasses advice.</div>
+
+<h3>2.5 Proxy mechanics: JDK vs CGLIB <span class="badge high">HIGH</span></h3>
+<p><b>JDK dynamic proxy:</b> implements the bean's interfaces via <code>java.lang.reflect.Proxy</code> — only interface methods are advised. <b>CGLIB:</b> generates a runtime <i>subclass</i> — so the class and advised methods can't be <code>final</code>, and the proxy calls through to the target. Spring Boot defaults to CGLIB even when interfaces exist (<code>proxyTargetClass=true</code>), for consistent injection by concrete type.</p>
+<div class="say">JDK proxies implement interfaces, CGLIB subclasses the class (so no final methods); Boot defaults to CGLIB so beans can always be injected by their concrete type.</div>
+
+<h3>2.6 Scopes <span class="badge nice">know it</span></h3>
+<p><b>singleton</b> (default): one instance per <i>container</i> (not per JVM — that's the trap), cached eagerly. <b>prototype:</b> new instance per <code>getBean()</code>; Spring does NOT call destroy callbacks on prototypes (it doesn't track them after handing them over). Web scopes: <b>request, session, application, websocket</b>. Injecting a shorter-lived scope into a singleton needs a <b>scoped proxy</b> (<code>proxyMode = TARGET_CLASS</code>) or <code>ObjectProvider</code> — otherwise the singleton freezes one instance at startup.</p>
+<div class="say">Singleton means one per container; prototypes get no destroy callbacks; and injecting request/prototype beans into singletons requires a scoped proxy or ObjectProvider, or you've frozen the first instance forever.</div>
+
+<h3>2.7 Circular dependencies — the three-level cache <span class="badge high">HIGH</span></h3>
+<p><b>Mechanism:</b> while creating A, Spring puts a factory for the <i>early reference</i> of A into cache level 3 (<code>singletonFactories</code>) right after instantiation, before population. When B (needed by A) asks for A, it receives that early half-initialized reference (promoted to level 2, <code>earlySingletonObjects</code>), letting the cycle close; finished beans land in level 1 (<code>singletonObjects</code>). Why a <i>factory</i> and not the raw object? So AOP can hand out the <i>proxy</i> early if needed.</p>
+<p><b>Limits:</b> works only for singleton, field/setter-injected cycles. <b>Constructor-injection cycles can never work</b> — you can't expose an early reference before the constructor finishes. Spring Boot 2.6+ rejects <i>all</i> circular refs by default (<code>spring.main.allow-circular-references=false</code>); the real fix is redesign, or <code>@Lazy</code> on one edge.</p>
+<div class="say">Spring closes setter/field cycles by exposing an early reference from the three-level singleton cache; constructor cycles are unsolvable, and since Boot 2.6 all cycles are rejected by default — the fix is redesign or @Lazy, not the flag.</div>
+
+<h2>3. Clean Code Examples</h2>
+
+<h3>3.1 Constructor injection (idiomatic) vs field injection</h3>
+<div class="right"><span class="label">Idiomatic (Boot 3)</span>
+<pre class="code">@Service
+public class InvoiceService {
+    private final InvoiceRepo repo;      // final = fully built after ctor
+
+    public InvoiceService(InvoiceRepo repo) {  // single ctor: @Autowired implicit
+        this.repo = repo;
+    }
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Service
+public class InvoiceService {
+    @Autowired private InvoiceRepo repo;      // field injection
+
+    public InvoiceService() {
+        // repo.count();  → NullPointerException: injection hasn't run yet
+    }
+}</pre>
+<p><b>Why it fails / is worse:</b> fields are injected reflectively <i>after</i> the constructor, so the object has a half-built window; it can't be final, hides dependencies, and is untestable without a container or reflection tricks.</p>
+</div>
+
+<h3>3.2 Lifecycle callbacks</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Component
+public class CacheWarmer {
+    private final ProductRepo repo;
+    private Map&lt;Long, Product&gt; cache;
+
+    CacheWarmer(ProductRepo repo) { this.repo = repo; }
+
+    @PostConstruct               // jakarta.annotation.PostConstruct in Boot 3
+    void warm() { cache = repo.loadHot(); }   // deps are injected by now
+
+    @PreDestroy
+    void flush() { cache.clear(); }
+}
+// Startup log order proof: ctor → @PostConstruct → (BPP-after/proxy) → ready</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">CacheWarmer(ProductRepo repo) {
+    this.repo = repo;
+    warm();               // works here, BUT:
+    selfProxyMethod();    // any call relying on AOP (@Async, @Cacheable,
+}                          // @Transactional) runs UNPROXIED — proxy doesn't exist yet</pre>
+<p><b>Why it fails:</b> during construction (and even @PostConstruct) the AOP proxy hasn't wrapped the bean yet — annotations on your own methods are silently ignored. Also with <i>field</i> injection, doing work in the constructor NPEs.</p>
+</div>
+
+<h3>3.3 Prototype into singleton</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Component @Scope("prototype")
+class ReportBuilder { /* stateful, per-use */ }
+
+@Service
+class ReportService {
+    private final ObjectProvider&lt;ReportBuilder&gt; builders;
+    ReportService(ObjectProvider&lt;ReportBuilder&gt; builders) { this.builders = builders; }
+
+    String run() { return builders.getObject().build(); }  // fresh instance per call
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Service
+class ReportService {
+    @Autowired ReportBuilder builder;   // injected ONCE at startup
+    String run() { return builder.build(); }  // same "prototype" reused forever
+}</pre>
+<p><b>Why it fails:</b> injection happens once when the singleton is built; the prototype scope only governs <code>getBean()</code> calls, so you've effectively demoted it to a shared, non-thread-safe singleton.</p>
+</div>
+
+<h3>3.4 A minimal BeanPostProcessor (know how the trick is done)</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Component
+public class TimingBpp implements BeanPostProcessor {
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String name) {
+        if (name.equals("invoiceService")) {
+            System.out.println("Wrapping " + name);   // this is where Spring
+            // return a proxy here and callers get the proxy, not the bean
+        }
+        return bean;
+    }
+}</pre>
+<p>Expected startup output: <code>Wrapping invoiceService</code> — once, after that bean's init callbacks.</p>
+</div>
+
+<h2>4. Tricks, Tips &amp; Rules of Thumb</h2>
+<ul>
+  <li><b>Mnemonic "CIA-PIP"</b> for the order: <b>C</b>onstructor → <b>I</b>njection → <b>A</b>ware → <b>P</b>ostConstruct (with BPP-before just ahead) → <b>I</b>nitializingBean/init-method → <b>P</b>roxy (BPP-after).</li>
+  <li><b>Golden rule:</b> constructor injection + final fields everywhere; @PostConstruct only for work that needs the container (warmups, validation).</li>
+  <li><b>Never rely on AOP annotations from inside the same class</b> — proxy-based advice needs an external call. (Full story in the Transactions note.)</li>
+  <li><b>@Bean vs @Component:</b> @Bean = you construct it in a @Configuration method (for third-party classes); @Component = Spring constructs it via scanning. Inside a proper @Configuration class, @Bean-method calls are CGLIB-intercepted so calling <code>dataSource()</code> twice returns the same singleton — but with <code>proxyBeanMethods=false</code> (or "lite" @Bean in a @Component) each call makes a new object.</li>
+  <li><b>Startup slow?</b> <code>@Lazy</code> defers creation to first use; but eager-by-default is a feature — it fails fast at deploy, not at 2 a.m. on first request.</li>
+  <li><b>Version gotchas:</b> Boot 3 = Spring 6 = <b>jakarta.*</b> — <code>@PostConstruct</code> is <code>jakarta.annotation.PostConstruct</code> (javax breaks silently: the annotation is simply ignored, no error). Boot 2.6+ bans circular refs by default. Spring 6 native/AOT builds the beans at build time — reflection-heavy tricks need hints.</li>
+  <li><b>Debug trick:</b> a breakpoint in <code>AbstractAutowireCapableBeanFactory#doCreateBean</code> shows the whole lifecycle live; <code>ctx.getBean(X.class).getClass()</code> revealing <code>$$SpringCGLIB$$</code> proves you hold a proxy.</li>
+</ul>
+
+<h2>5. Interview Heat Map</h2>
+<div class="table-wrap">
+<table>
+  <tr><th>Sub-concept</th><th>Asked</th><th>The trap</th><th>Crisp answer</th></tr>
+  <tr><td>Lifecycle callback order</td><td>Very often</td><td>Mixing up @PostConstruct vs afterPropertiesSet order</td><td>ctor → inject → Aware → BPP-before → @PostConstruct → afterPropertiesSet → init-method → BPP-after</td></tr>
+  <tr><td>Where proxies are created</td><td>Very often</td><td>Thinking @Transactional edits bytecode</td><td>BPP-after wraps the finished bean; container injects the proxy</td></tr>
+  <tr><td>Circular dependencies</td><td>Very often</td><td>Claiming Spring solves ctor cycles</td><td>3-level cache closes setter/field cycles only; Boot 2.6+ rejects all by default</td></tr>
+  <tr><td>Field vs constructor injection</td><td>Often</td><td>NPE-in-constructor story unknown</td><td>fields inject after ctor; ctor injection = final, testable, no half-built state</td></tr>
+  <tr><td>Scopes</td><td>Often</td><td>"Singleton = one per JVM"</td><td>one per container; prototype gets no destroy; scoped proxy for narrow-into-wide</td></tr>
+  <tr><td>BPP vs BFPP</td><td>Sometimes</td><td>Confusing which edits what</td><td>BFPP edits BeanDefinitions pre-instantiation; BPP edits instances around init</td></tr>
+  <tr><td>@Configuration proxying</td><td>Sometimes</td><td>Not knowing proxyBeanMethods</td><td>full config CGLIB-intercepts @Bean calls to keep singletons; lite mode doesn't</td></tr>
+</table>
+</div>
+
+<h3>Top 5 questions with follow-up chains</h3>
+<ol class="qa">
+  <li><b>Walk me through the Spring bean lifecycle.</b>
+    <div class="follow">↳ L1: Where exactly does the AOP proxy appear? (BPP postProcessAfterInitialization) ↳ L2: So what happens if @PostConstruct calls an @Async method on itself? (runs synchronously — no proxy yet, and self-call anyway)</div></li>
+  <li><b>How does Spring resolve circular dependencies?</b>
+    <div class="follow">↳ L1: Why can't it work with constructor injection? (no object exists to expose early) ↳ L2: Why is level 3 a factory rather than the object? (so the early reference can be the AOP proxy when needed)</div></li>
+  <li><b>Why prefer constructor injection?</b>
+    <div class="follow">↳ L1: When is @Autowired optional on a constructor? (single constructor — implicit since Spring 4.3) ↳ L2: How does it interact with circular deps? (turns a hidden design smell into an immediate startup failure — a feature)</div></li>
+  <li><b>What is a BeanPostProcessor and name real ones?</b>
+    <div class="follow">↳ L1: BFPP vs BPP? (definitions vs instances) ↳ L2: Why are BPPs instantiated before other beans, and what's the classic warning when a BPP depends on normal beans? ("bean X is not eligible for getting processed by all BeanPostProcessors" — those deps skip proxying)</div></li>
+  <li><b>Difference between @Bean and @Component?</b>
+    <div class="follow">↳ L1: What does @Configuration's CGLIB proxy guarantee? (inter-@Bean-method calls return the cached singleton) ↳ L2: Why would you set proxyBeanMethods=false? (faster startup/AOT friendliness when no @Bean method calls another)</div></li>
+</ol>
+
+<h2>6. Sticky-Note Summary</h2>
+<div class="sticky">
+<ul>
+  <li>Container = BeanDefinition map + singleton cache; refresh() cooks recipes into beans.</li>
+  <li>Order: ctor → inject → Aware → BPP-before → @PostConstruct → afterPropertiesSet → init-method → BPP-after → use → @PreDestroy.</li>
+  <li>All annotation magic = BeanPostProcessors; AOP proxy wraps at BPP-after.</li>
+  <li>JDK proxy = interfaces; CGLIB = subclass (no finals); Boot defaults to CGLIB.</li>
+  <li>Constructor injection + final fields; @PostConstruct for container-dependent warmup only.</li>
+  <li>In the constructor, @Autowired fields are null. Always.</li>
+  <li>Circular deps: 3-level cache; setter/field-only; Boot 2.6+ rejects by default; fix = redesign or @Lazy.</li>
+  <li>Singleton = per container; prototype = per getBean(), no destroy callbacks; scoped proxy for narrow-into-wide injection.</li>
+  <li>Boot 3 = jakarta.annotation.* — a javax @PostConstruct is silently ignored.</li>
+  <li><code>getClass()</code> shows <code>$$SpringCGLIB$$</code>? You're holding a proxy, not the bean.</li>
+</ul>
+</div>
+
+<h3>Self-test (5 questions)</h3>
+<ol>
+  <li>In what order do these run: afterPropertiesSet, @PostConstruct, constructor, @Autowired field injection, postProcessAfterInitialization?</li>
+  <li>Your @PostConstruct method calls this.cacheableMethod() annotated with @Cacheable. Is the cache used? Why?</li>
+  <li>Beans A and B constructor-inject each other. What happens at startup and what are your two fixes?</li>
+  <li>A prototype bean injected into a singleton behaves like a singleton. Explain the mechanism and the fix.</li>
+  <li>What breaks when you copy Boot 2 code with javax.annotation.PostConstruct into a Boot 3 app — and how does the failure present?</li>
+</ol>
+<details>
+  <summary>Answers</summary>
+  <ol>
+    <li>constructor → @Autowired field injection → @PostConstruct → afterPropertiesSet → postProcessAfterInitialization.</li>
+    <li>No. Two reasons: the proxy may not exist yet at @PostConstruct time, and it's a self-invocation via <code>this</code>, which bypasses the proxy regardless.</li>
+    <li>Startup fails with BeanCurrentlyInCreationException (unresolvable ctor cycle). Fixes: break the cycle by extracting the shared piece (best), or @Lazy one constructor parameter so a lazy proxy defers resolution.</li>
+    <li>Injection resolved the prototype once while building the singleton. Fix: inject <code>ObjectProvider&lt;T&gt;</code> (or a @Lookup method / scoped proxy) and fetch per use.</li>
+    <li>Nothing fails at startup — the annotation is simply not recognized, so the init method never runs; you discover it as missing initialization behavior at runtime. Boot 3 scans jakarta.annotation only.</li>
+  </ol>
+</details>
+
+<p class="muted"><a href="transactions.html">Next: Spring Transactions &rarr;</a></p>
+</main>
+
+<script src="../js/mermaid.min.js"></script>
+<script src="../js/app.js"></script>

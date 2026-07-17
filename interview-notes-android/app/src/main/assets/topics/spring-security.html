@@ -1,0 +1,263 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring Security — Revision Notes</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<header class="page">
+  <a href="../index.html">&larr; All topics</a>
+  <h1>Spring Security</h1>
+  <p>Filter chain &middot; SecurityContext &middot; JWT/stateless &middot; method security &middot; CSRF/CORS</p>
+</header>
+
+<main>
+
+<h2>1. Mental Map</h2>
+<pre class="mermaid">
+flowchart TD
+    SS[Spring Security] --> ARCH[Architecture: servlet filter chain]:::high
+    ARCH --> DFP[DelegatingFilterProxy -> FilterChainProxy -> SecurityFilterChain]:::high
+    SS --> AUTHN[Authentication - who are you]:::high
+    AUTHN --> AM[AuthenticationManager / ProviderManager]:::high
+    AM --> DAP[DaoAuthenticationProvider + UserDetailsService + PasswordEncoder]:::high
+    AUTHN --> SC[SecurityContextHolder ThreadLocal]:::high
+    SS --> AUTHZ[Authorization - what may you do]:::high
+    AUTHZ --> URL[URL rules: authorizeHttpRequests]:::high
+    AUTHZ --> METH[Method security: PreAuthorize]:::high
+    AUTHZ --> RH[Role vs Authority, hierarchy]
+    SS --> STATE[Stateless APIs: JWT filter, no session]:::high
+    SS --> PROT[Protections]
+    PROT --> CSRF[CSRF]:::high
+    PROT --> CORS[CORS]
+    PROT --> HEAD[Security headers, BCrypt storage]
+    SS --> EXC[401 AuthenticationEntryPoint vs 403 AccessDeniedHandler]
+    classDef high fill:#fbbf24,stroke:#b45309,stroke-width:2px,color:#1f2530;
+</pre>
+
+<h2>2. The Fundamentals</h2>
+
+<h3>2.1 It's all servlet filters <span class="badge high">HIGH</span></h3>
+<p><b>Mechanism:</b> the servlet container knows one filter: <code>DelegatingFilterProxy</code> (registered as "springSecurityFilterChain"). It delegates into the Spring context to <code>FilterChainProxy</code>, which picks the first <code>SecurityFilterChain</code> bean whose matcher fits the request and runs its ordered filters. Security happens <i>before</i> DispatcherServlet — before any controller exists.</p>
+<pre class="mermaid">
+flowchart TD
+    R[HTTP request] --> D[DelegatingFilterProxy - servlet world]
+    D --> F[FilterChainProxy - Spring world]
+    F --> M{which SecurityFilterChain matches?}
+    M --> C1[api chain: JWT filter, stateless]
+    M --> C2[web chain: form login, session]
+    C1 --> ORD[ordered filters: context load -> auth -> exception translation -> authorize]
+    ORD --> DS[DispatcherServlet -> Controller]
+    classDef high fill:#fbbf24,stroke:#b45309,color:#1f2530;
+    class F,M,ORD high;
+</pre>
+<p><b>Key ordered filters</b> (know ~5, in order): <code>SecurityContextHolderFilter</code> (load context) → <code>CsrfFilter</code> → authentication filters (<code>UsernamePasswordAuthenticationFilter</code>, <code>BearerTokenAuthenticationFilter</code>/your JWT filter, <code>BasicAuthenticationFilter</code>) → <code>ExceptionTranslationFilter</code> → <code>AuthorizationFilter</code> (last: decides allow/deny).</p>
+<div class="say">Spring Security is a chain of servlet filters ahead of DispatcherServlet: DelegatingFilterProxy bridges into FilterChainProxy, which selects a SecurityFilterChain per request; authentication filters run early, AuthorizationFilter decides last.</div>
+
+<h3>2.2 Authentication model <span class="badge high">HIGH</span></h3>
+<p><b>The objects:</b> an <code>Authentication</code> token starts <i>unauthenticated</i> (credentials only) and is submitted to the <code>AuthenticationManager</code> (impl: <code>ProviderManager</code>), which polls its <code>AuthenticationProvider</code>s for one that <code>supports()</code> the token type. <code>DaoAuthenticationProvider</code> loads a <code>UserDetails</code> via your <code>UserDetailsService</code>, verifies the password with the <code>PasswordEncoder</code> (BCrypt default — salted, slow on purpose), and returns an <i>authenticated</i> token carrying <code>GrantedAuthority</code>s.</p>
+<p><b>Where it lives:</b> <code>SecurityContextHolder</code> — a ThreadLocal. That's why <code>@Async</code>/new threads lose the user (propagate with <code>DelegatingSecurityContextExecutor</code> or the inheritable strategy). In session apps the context is saved to the HTTP session between requests; in stateless APIs it's rebuilt from the token on every request.</p>
+<div class="say">Authentication is a strategy chain: ProviderManager asks providers; DaoAuthenticationProvider = UserDetailsService + PasswordEncoder; the result sits in a ThreadLocal SecurityContextHolder, which is exactly why new threads don't inherit the user.</div>
+
+<h3>2.3 Authorization model <span class="badge high">HIGH</span></h3>
+<p><b>URL level:</b> <code>authorizeHttpRequests</code> rules are evaluated by <code>AuthorizationFilter</code> using <code>AuthorizationManager</code>s — <b>first matching rule wins, so order specific → general</b>. <b>Method level:</b> <code>@PreAuthorize("hasRole('ADMIN')")</code> etc. via <code>@EnableMethodSecurity</code> — implemented as an AOP proxy interceptor (same proxy rules as @Transactional: public methods, external calls only, self-invocation bypasses it!).</p>
+<p><b>Role vs authority:</b> a role IS an authority with the <code>ROLE_</code> prefix. <code>hasRole("ADMIN")</code> checks authority <code>ROLE_ADMIN</code>; <code>hasAuthority("ROLE_ADMIN")</code> is identical. Mixing the two conventions is the classic 403-that-makes-no-sense.</p>
+<p><b>401 vs 403:</b> <code>ExceptionTranslationFilter</code> catches <code>AccessDeniedException</code> downstream: anonymous user → start authentication via <code>AuthenticationEntryPoint</code> (401 / redirect to login); authenticated but insufficient → <code>AccessDeniedHandler</code> (403).</p>
+<div class="say">URL rules are first-match-wins so I order specific to general; @PreAuthorize is proxy-based AOP with the same self-invocation caveat as @Transactional; and hasRole('X') just means authority ROLE_X.</div>
+
+<h3>2.4 Stateless APIs with JWT <span class="badge high">HIGH</span></h3>
+<p><b>Flow:</b> login endpoint verifies credentials → issues a signed token (header.payload.signature; HMAC or RSA). Every request carries <code>Authorization: Bearer &lt;jwt&gt;</code>; a filter (Boot's resource-server <code>BearerTokenAuthenticationFilter</code> with <code>spring-boot-starter-oauth2-resource-server</code>, or a custom <code>OncePerRequestFilter</code>) validates signature + expiry, builds an Authentication, sets it in the context. <code>SessionCreationPolicy.STATELESS</code> stops session creation; CSRF is disabled because there's no cookie-bound session for a cross-site request to ride (valid only while the token is NOT stored in a cookie sent automatically).</p>
+<p><b>The honest trade-offs</b> (interviewers probe these): the signature guarantees integrity, not secrecy — payload is only Base64, don't put secrets in it. Logout/revocation is unsolved by design: a signed token stays valid until expiry — mitigate with short-lived access tokens + refresh-token rotation, or a denylist (which quietly reintroduces state).</p>
+<div class="say">JWT auth is a per-request filter that verifies the signature and rebuilds the SecurityContext — no session; the costs are no built-in revocation and a Base64-readable payload, so short expiry plus refresh rotation is the standard design.</div>
+
+<h3>2.5 CSRF and CORS — different threats <span class="badge high">HIGH</span></h3>
+<p><b>CSRF</b> attacks the <i>server</i> exploiting cookies being auto-attached: evil.com auto-submits a POST to yourbank.com and the browser adds the session cookie. Defense: synchronizer token the attacker can't read (CsrfFilter compares). Needed only for cookie/session auth; irrelevant for Bearer-header APIs (the attacker's page can't add your header).
+<b>CORS</b> is the <i>browser</i> protecting the user: it blocks cross-origin JS from reading responses unless the server opts in via <code>Access-Control-Allow-Origin</code> (preflight OPTIONS for non-simple requests). CORS is not access control — curl ignores it entirely.</p>
+<div class="say">CSRF exploits auto-attached cookies, so token-in-header APIs can disable it; CORS is a browser-enforced read-permission handshake, not a server-side security control — curl never sees it.</div>
+
+<h3>2.6 Password storage <span class="badge nice">know it</span></h3>
+<p>BCrypt (default via <code>PasswordEncoderFactories</code>): per-password random salt embedded in the hash, tunable cost factor to stay slow as hardware improves. <code>{bcrypt}</code>-prefixed <code>DelegatingPasswordEncoder</code> allows migrating algorithms without breaking old hashes. Never MD5/SHA-256-alone (fast = brute-forceable), never reversible encryption.</p>
+<div class="say">BCrypt is deliberately slow and per-password salted; the {id} prefix in DelegatingPasswordEncoder lets you migrate algorithms hash-by-hash.</div>
+
+<h2>3. Clean Code Examples</h2>
+
+<h3>3.1 Boot 3 SecurityFilterChain (the modern config)</h3>
+<div class="right"><span class="label">Idiomatic (Boot 3 / Security 6.1+)</span>
+<pre class="code">@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    @Bean
+    SecurityFilterChain api(HttpSecurity http, JwtAuthFilter jwtFilter) throws Exception {
+        http
+            .csrf(csrf -&gt; csrf.disable())                 // stateless bearer API only!
+            .sessionManagement(s -&gt; s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -&gt; auth
+                .requestMatchers("/api/auth/**", "/actuator/health").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")   // specific first
+                .anyRequest().authenticated())                        // general last
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong ways</span>
+<pre class="code">// 1. Boot 2 style — REMOVED in Security 6:
+public class SecurityConfig extends WebSecurityConfigurerAdapter { ... }
+
+// 2. Rule order inverted:
+.authorizeHttpRequests(auth -&gt; auth
+    .anyRequest().authenticated()                 // matches EVERYTHING first
+    .requestMatchers("/api/auth/**").permitAll()) // dead rule → login returns 401
+
+// 3. csrf.disable() copy-pasted into a session/cookie app → CSRF wide open</pre>
+<p><b>Why they fail:</b> (1) WebSecurityConfigurerAdapter is gone in Spring Security 6 — component-style beans are mandatory. (2) First-match-wins: the permitAll rule is unreachable. (3) Disabling CSRF is only sound when no auto-attached credential (session cookie) exists.</p>
+</div>
+
+<h3>3.2 A correct custom JWT filter</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Component
+public class JwtAuthFilter extends OncePerRequestFilter {
+    private final JwtService jwt;               // your parse/verify wrapper
+    JwtAuthFilter(JwtService jwt) { this.jwt = jwt; }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest req,   // jakarta.servlet!
+            HttpServletResponse res, FilterChain chain)
+            throws ServletException, IOException {
+        String h = req.getHeader("Authorization");
+        if (h != null &amp;&amp; h.startsWith("Bearer ")) {
+            var user = jwt.verifyAndLoad(h.substring(7));     // sig + expiry
+            if (user != null) {
+                var auth = new UsernamePasswordAuthenticationToken(
+                        user, null, user.getAuthorities());   // authenticated ctor
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
+        }
+        chain.doFilter(req, res);   // ALWAYS continue — authorization decides later
+    }
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">if (h == null) { res.sendError(401); return; }  // filter rejects everything
+                                                 // → /api/auth/login also 401!</pre>
+<p><b>Why it fails:</b> the filter's job is only to <i>populate</i> the context when a valid token exists; rejecting must be left to AuthorizationFilter, otherwise permitAll endpoints die. Also: extending OncePerRequestFilter avoids double execution on forwards/errors.</p>
+</div>
+
+<h3>3.3 Method security</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Service
+public class AccountService {
+    @PreAuthorize("hasRole('ADMIN') or #ownerId == authentication.name")
+    public Account view(String ownerId) { ... }   // data-aware rule via SpEL
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">public Account viewAll() {
+    return this.view("x");   // self-invocation: @PreAuthorize NOT evaluated
+}
+// and: @PreAuthorize("hasRole('ROLE_ADMIN')") → checks ROLE_ROLE_ADMIN → always 403</pre>
+<p><b>Why it fails:</b> method security is proxy AOP — internal calls bypass it (same as @Transactional). And hasRole auto-prefixes ROLE_, so writing the prefix doubles it.</p>
+</div>
+
+<h3>3.4 Getting the current user</h3>
+<div class="right"><span class="label">Idiomatic (controller)</span>
+<pre class="code">@GetMapping("/me")
+public UserDto me(@AuthenticationPrincipal UserDetails user) {  // injected
+    return UserDto.from(user);
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Async
+public void notifyUser() {
+    var auth = SecurityContextHolder.getContext().getAuthentication();
+    auth.getName();   // NullPointerException — new thread, empty ThreadLocal
+}</pre>
+<p><b>Why it fails:</b> the context is a ThreadLocal; @Async runs on a pool thread that never had it set. Pass the username as a parameter, or configure a <code>DelegatingSecurityContextTaskExecutor</code>.</p>
+</div>
+
+<h2>4. Tricks, Tips &amp; Rules of Thumb</h2>
+<ul>
+  <li><b>Mnemonic "Who → May → Do":</b> authentication filters decide <i>who</i> (early in chain), AuthorizationFilter decides <i>may</i> (last), controller does the <i>do</i>.</li>
+  <li><b>401 = who are you (authentication missing/failed); 403 = I know you, no (authorization).</b> Wrong one from your API usually means your EntryPoint/AccessDeniedHandler config.</li>
+  <li><b>Rule order:</b> specific matchers before <code>anyRequest()</code> — always. Boot won't warn about dead rules (adding a matcher after anyRequest() does throw in recent versions).</li>
+  <li><b>Never</b> put permitAll on actuator wildcards in prod — <code>/actuator/health</code> only; heapdump/env leak secrets.</li>
+  <li><b>Defense in depth:</b> URL rules for coarse gates + method security on services for the real invariants — URL rules silently stop protecting a method the day someone adds a second controller path to it.</li>
+  <li><b>Testing:</b> <code>@WithMockUser(roles = "ADMIN")</code> + MockMvc; <code>spring-security-test</code>'s <code>jwt()</code> post-processor for resource servers. Test 403s, not just 200s.</li>
+  <li><b>Version gotchas:</b> Boot 3/Security 6: <code>WebSecurityConfigurerAdapter</code> and <code>authorizeRequests()</code>/<code>antMatchers()</code> are <b>gone</b> — use SecurityFilterChain beans, <code>authorizeHttpRequests()</code>, <code>requestMatchers()</code>; lambda-DSL is mandatory in 6.1+ (chained non-lambda style removed); <code>@EnableGlobalMethodSecurity</code> → <code>@EnableMethodSecurity</code> (prePostEnabled now default true); everything servlet is <code>jakarta.servlet</code>.</li>
+  <li><b>Filter registration trap:</b> a filter that's a @Component AND added via addFilterBefore can run twice (Boot registers @Component Filters with the container too) — mark it with a <code>FilterRegistrationBean</code> disabled, or don't make it a bean picked up both ways.</li>
+</ul>
+
+<h2>5. Interview Heat Map</h2>
+<div class="table-wrap">
+<table>
+  <tr><th>Sub-concept</th><th>Asked</th><th>The trap</th><th>Crisp answer</th></tr>
+  <tr><td>Request flow / filter chain</td><td>Very often</td><td>Saying "interceptors" / placing security after controllers</td><td>DelegatingFilterProxy → FilterChainProxy → matched SecurityFilterChain → then DispatcherServlet</td></tr>
+  <tr><td>Authentication vs authorization</td><td>Very often</td><td>Mapping 401/403 backwards</td><td>authn = who (401 via EntryPoint); authz = may (403 via AccessDeniedHandler)</td></tr>
+  <tr><td>JWT design</td><td>Very often</td><td>"JWT is encrypted" / no revocation story</td><td>signed not encrypted; short expiry + refresh rotation for revocation</td></tr>
+  <tr><td>SecurityContextHolder</td><td>Often</td><td>Not knowing it's a ThreadLocal</td><td>per-thread context; async needs delegating executor</td></tr>
+  <tr><td>CSRF vs CORS</td><td>Often</td><td>Treating them as the same thing</td><td>CSRF = cookie riding, server-defended; CORS = browser read-permission</td></tr>
+  <tr><td>hasRole vs hasAuthority</td><td>Often</td><td>ROLE_ double-prefix → mystery 403</td><td>hasRole adds ROLE_; hasAuthority is raw</td></tr>
+  <tr><td>Method security</td><td>Often</td><td>Forgetting proxy/self-invocation limits</td><td>@EnableMethodSecurity + @PreAuthorize; AOP proxy semantics</td></tr>
+  <tr><td>Password storage</td><td>Sometimes</td><td>Suggesting SHA-256</td><td>BCrypt: salted + deliberately slow + DelegatingPasswordEncoder migration</td></tr>
+</table>
+</div>
+
+<h3>Top 5 questions with follow-up chains</h3>
+<ol class="qa">
+  <li><b>Walk a request through Spring Security.</b>
+    <div class="follow">↳ L1: Where do multiple filter chains come in? (FilterChainProxy picks first matching chain — e.g. /api/** stateless vs web form-login) ↳ L2: Which filter makes the final allow/deny call and when? (AuthorizationFilter, last, after authn filters populated the context)</div></li>
+  <li><b>How would you secure a stateless REST API?</b>
+    <div class="follow">↳ L1: Why is CSRF safe to disable here? (no auto-attached credential; breaks if you move the JWT into an auto-sent cookie) ↳ L2: How do you handle token revocation/logout? (short-lived access + rotating refresh tokens; denylist if hard revocation is mandated)</div></li>
+  <li><b>How does login actually verify a password?</b>
+    <div class="follow">↳ L1: Why BCrypt over SHA-256? (adaptive cost + salt vs fast hash) ↳ L2: How do you migrate 1M legacy SHA-1 hashes without a reset? (DelegatingPasswordEncoder id-prefix; re-encode on successful login)</div></li>
+  <li><b>Difference between securing URLs and securing methods?</b>
+    <div class="follow">↳ L1: Which wins if both apply? (both run — URL first at filter level, then method interceptor; either can deny) ↳ L2: Why can @PreAuthorize silently not run? (self-invocation / non-public method — proxy AOP)</div></li>
+  <li><b>Your endpoint returns 403 though the user has ADMIN. Debug it.</b>
+    <div class="follow">↳ L1: First checks? (authorities actually on the token — ROLE_ prefix mismatch; rule order; which filter chain matched) ↳ L2: What logging flips the black box open? (logging.level.org.springframework.security=TRACE shows chain selection and the authorization decision)</div></li>
+</ol>
+
+<h2>6. Sticky-Note Summary</h2>
+<div class="sticky">
+<ul>
+  <li>Filters, not interceptors: DelegatingFilterProxy → FilterChainProxy → matched SecurityFilterChain → DispatcherServlet.</li>
+  <li>Authn = who (401, AuthenticationEntryPoint); Authz = may (403, AccessDeniedHandler).</li>
+  <li>ProviderManager → DaoAuthenticationProvider = UserDetailsService + PasswordEncoder (BCrypt).</li>
+  <li>SecurityContextHolder is a ThreadLocal — async/new threads are anonymous unless delegated.</li>
+  <li>URL rules: first match wins; specific before anyRequest().</li>
+  <li>hasRole("X") == hasAuthority("ROLE_X"). Never write ROLE_ inside hasRole.</li>
+  <li>JWT: signed, readable, irrevocable until expiry → short TTL + refresh rotation; STATELESS session policy.</li>
+  <li>CSRF: cookie-riding attack — disable only for header-token APIs. CORS: browser read-permission, not security.</li>
+  <li>@PreAuthorize = proxy AOP → public methods, external calls (same trap family as @Transactional).</li>
+  <li>Boot 3: SecurityFilterChain beans + authorizeHttpRequests/requestMatchers; the Adapter and antMatchers are gone; jakarta.* everywhere.</li>
+</ul>
+</div>
+
+<h3>Self-test (5 questions)</h3>
+<ol>
+  <li>A request hits /api/admin/users with a valid JWT lacking ROLE_ADMIN. Trace which filters touch it and where 403 is produced.</li>
+  <li>Why does a permitAll login endpoint return 401 when a naive JWT filter is installed — and what's the correct filter behavior?</li>
+  <li>@PreAuthorize("hasRole('ROLE_MANAGER')") always denies a manager. Two distinct bugs could cause this — name both.</li>
+  <li>Your SPA on app.example.com calls api.example.org and the browser blocks it. Is this CSRF or CORS, what fixes it, and does the fix weaken security for curl users?</li>
+  <li>Session-cookie web app: which two config mistakes from the notes would open it to CSRF, and why is the same config fine for a Bearer-token API?</li>
+</ol>
+<details>
+  <summary>Answers</summary>
+  <ol>
+    <li>The api chain matches; JWT/BearerToken filter validates the token and populates SecurityContextHolder; AuthorizationFilter (last) evaluates hasRole("ADMIN") → AccessDeniedException; ExceptionTranslationFilter sees an authenticated user → AccessDeniedHandler → 403 (not 401).</li>
+    <li>The naive filter rejects requests without a token itself (sendError 401 + return) — so unauthenticated login calls die before authorization. Correct: on missing/invalid token just continue the chain without setting authentication; AuthorizationFilter will allow permitAll routes and deny the rest.</li>
+    <li>(a) Double prefix: hasRole prepends ROLE_ → it checks ROLE_ROLE_MANAGER. (b) The user's authorities were stored without the ROLE_ prefix (e.g. "MANAGER") so even hasRole('MANAGER') fails until authorities are granted as ROLE_MANAGER or checked with hasAuthority.</li>
+    <li>CORS — different origin (host differs), browser preflights and blocks reads. Fix: server allows the origin via CorsConfigurationSource wired into http.cors(). No — curl was never restricted; CORS only governs browsers, so allowing an origin doesn't change non-browser access at all.</li>
+    <li>csrf.disable() copy-pasted, and/or accepting state-changing GETs. With session cookies the browser auto-attaches credentials to attacker-initiated requests — the token check is the defense. A Bearer API is safe because the attacker's page cannot make the victim's browser add the Authorization header.</li>
+  </ol>
+</details>
+
+<p class="muted"><a href="../index.html">&larr; Back to all topics</a></p>
+</main>
+
+<script src="../js/mermaid.min.js"></script>
+<script src="../js/app.js"></script>

@@ -1,0 +1,197 @@
+:root {
+  --bg: #fafafa;
+  --card: #ffffff;
+  --text: #1f2530;
+  --muted: #5c6570;
+  --accent: #1b5e20;
+  --accent-soft: #e8f5e9;
+  --border: #e0e3e8;
+  --code-bg: #23272e;
+  --code-text: #e6e9ef;
+  --high: #b45309;
+  --high-bg: #fef3c7;
+  --warn-bg: #fdecea;
+  --warn-border: #e57373;
+  --ok-bg: #e8f5e9;
+  --ok-border: #81c784;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --card: #1d2128;
+    --text: #e4e7ec;
+    --muted: #9aa3ae;
+    --accent: #81c784;
+    --accent-soft: #1f3322;
+    --border: #313743;
+    --high: #fbbf24;
+    --high-bg: #3a2f10;
+    --warn-bg: #3a1f1d;
+    --warn-border: #a04b45;
+    --ok-bg: #1f3322;
+    --ok-border: #3e6b45;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 0 4rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  line-height: 1.55;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+header.page {
+  background: var(--accent);
+  color: #fff;
+  padding: 1.1rem 1rem 1rem;
+}
+header.page h1 { margin: 0; font-size: 1.35rem; }
+header.page p { margin: 0.3rem 0 0; opacity: 0.9; font-size: 0.9rem; }
+header.page a { color: #c8e6c9; text-decoration: none; font-size: 0.85rem; }
+
+main { padding: 0.9rem; max-width: 900px; margin: 0 auto; }
+
+h2 {
+  font-size: 1.15rem;
+  border-left: 4px solid var(--accent);
+  padding-left: 0.5rem;
+  margin: 1.8rem 0 0.8rem;
+}
+h3 { font-size: 1.02rem; margin: 1.3rem 0 0.5rem; }
+h4 { font-size: 0.95rem; margin: 1rem 0 0.4rem; }
+
+p, li { color: var(--text); }
+.muted { color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin: 0.8rem 0;
+}
+
+a.topic-card {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.7rem 0;
+  text-decoration: none;
+  color: var(--text);
+}
+a.topic-card strong { color: var(--accent); font-size: 1.05rem; }
+a.topic-card span { display: block; margin-top: 0.25rem; font-size: 0.87rem; color: var(--muted); }
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.badge.high { background: var(--high-bg); color: var(--high); }
+.badge.nice { background: var(--accent-soft); color: var(--accent); }
+
+.say {
+  background: var(--accent-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  margin: 0.6rem 0;
+  font-size: 0.92rem;
+}
+.say::before { content: "Say this: "; font-weight: 700; color: var(--accent); }
+
+.wrong {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.6rem 0;
+}
+.right {
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.6rem 0;
+}
+.wrong > .label, .right > .label { font-weight: 700; font-size: 0.85rem; }
+
+pre.code {
+  background: var(--code-bg);
+  color: var(--code-text);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0.5rem 0;
+}
+code {
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 0.88em;
+}
+p code, li code, td code, .say code {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+}
+
+.table-wrap { overflow-x: auto; margin: 0.7rem 0; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 560px;
+  font-size: 0.85rem;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: var(--accent-soft); color: var(--accent); }
+
+pre.mermaid {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  overflow-x: auto;
+  text-align: center;
+  margin: 0.8rem 0;
+}
+
+details {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.7rem 0;
+}
+details summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+
+hr { border: none; border-top: 1px dashed var(--border); margin: 1.6rem 0; }
+
+.sticky {
+  background: var(--high-bg);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  margin: 0.8rem 0;
+}
+.sticky li { margin: 0.35rem 0; font-size: 0.92rem; }
+
+ol.qa > li { margin: 0.8rem 0; }
+ol.qa .follow { margin: 0.3rem 0 0 0.6rem; font-size: 0.9rem; color: var(--muted); }

@@ -1,0 +1,50 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java &amp; Spring Interview Notes</title>
+<link rel="stylesheet" href="css/style.css">
+
+<header class="page">
+  <h1>Java &amp; Spring Interview Notes</h1>
+  <p>Permanent revision notes — the night-before-the-interview read. Depth over breadth; every section explains the real mechanism, not the surface definition.</p>
+</header>
+
+<main>
+  <h2>Topics</h2>
+
+  <a class="topic-card" href="topics/collections.html">
+    <strong>1. Java Collections</strong>
+    <span>HashMap internals, hashing &amp; treeification, fail-fast iterators, equals/hashCode contract, List/Set/Map trade-offs, concurrent collections.</span>
+  </a>
+
+  <a class="topic-card" href="topics/bean-lifecycle.html">
+    <strong>2. Spring Bean Lifecycle</strong>
+    <span>Container bootstrap, BeanDefinition → instantiation → population → init, BeanPostProcessors, proxies/AOP, scopes, circular dependencies.</span>
+  </a>
+
+  <a class="topic-card" href="topics/transactions.html">
+    <strong>3. Spring Transactions</strong>
+    <span>How @Transactional really works (proxies), propagation, isolation, rollback rules, self-invocation trap, read-only &amp; timeouts.</span>
+  </a>
+
+  <a class="topic-card" href="topics/spring-security.html">
+    <strong>4. Spring Security</strong>
+    <span>Filter chain mechanics, SecurityContext, authentication vs authorization, JWT/stateless APIs, method security, CSRF/CORS.</span>
+  </a>
+
+  <div class="card">
+    <strong>How each note is structured</strong>
+    <ol style="margin:0.4rem 0 0; padding-left:1.2rem; font-size:0.9rem;">
+      <li>Mental map (diagram) — the whole topic at a glance, high-frequency nodes highlighted</li>
+      <li>Fundamentals — mechanism-level explanations + the one line to say in an interview</li>
+      <li>Clean code examples — idiomatic vs the common wrong way</li>
+      <li>Tricks, tips &amp; rules of thumb — incl. version gotchas (Java 8/17/21, Boot 2/3)</li>
+      <li>Interview heat map — frequency, traps, crisp answers, top-5 with follow-up chains</li>
+      <li>Sticky-note summary + 5-question self-test (answers hidden)</li>
+    </ol>
+  </div>
+
+  <p class="muted" style="font-size:0.8rem;">Works fully offline. Diagrams render locally via bundled Mermaid.</p>
+</main>
+
+<script src="js/mermaid.min.js"></script>
+<script src="js/app.js"></script>

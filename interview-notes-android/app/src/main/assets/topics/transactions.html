@@ -1,0 +1,275 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring Transactions — Revision Notes</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<header class="page">
+  <a href="../index.html">&larr; All topics</a>
+  <h1>Spring Transactions</h1>
+  <p>Proxy mechanics &middot; propagation &middot; isolation &middot; rollback rules &middot; the self-invocation trap</p>
+</header>
+
+<main>
+
+<h2>1. Mental Map</h2>
+<pre class="mermaid">
+flowchart TD
+    T[Transactional] --> HOW[How it works: AOP proxy + interceptor]:::high
+    HOW --> PTM[PlatformTransactionManager]
+    PTM --> SYNC[Connection bound to thread via TransactionSynchronizationManager]
+    T --> PROP[Propagation]:::high
+    PROP --> REQ[REQUIRED default]:::high
+    PROP --> RNEW[REQUIRES_NEW]:::high
+    PROP --> NEST[NESTED savepoint]
+    PROP --> OTH[SUPPORTS / MANDATORY / NEVER / NOT_SUPPORTED]
+    T --> ISO[Isolation levels]:::high
+    ISO --> ANOM[dirty read, non-repeatable read, phantom]
+    T --> RB[Rollback rules]:::high
+    RB --> RTE[Runtime exception: rollback]
+    RB --> CHK[Checked exception: COMMIT!]:::high
+    T --> TRAPS[Traps]:::high
+    TRAPS --> SELF[Self-invocation bypasses proxy]:::high
+    TRAPS --> PRIV[private / final methods not advised]
+    TRAPS --> CATCH[Catching exception but tx marked rollback-only]
+    T --> MISC[readOnly, timeout, transaction manager per datasource]
+    classDef high fill:#fbbf24,stroke:#b45309,stroke-width:2px,color:#1f2530;
+</pre>
+
+<h2>2. The Fundamentals</h2>
+
+<h3>2.1 What @Transactional actually does <span class="badge high">HIGH</span></h3>
+<p><b>Mechanism:</b> at startup a BeanPostProcessor wraps your bean in an AOP proxy. A call from <i>outside</i> hits <code>TransactionInterceptor</code>, which asks the <code>PlatformTransactionManager</code> (for JPA: <code>JpaTransactionManager</code>) to <code>getTransaction()</code>. That obtains a JDBC connection, sets <code>autoCommit=false</code>, and binds the connection to the <b>current thread</b> in a ThreadLocal (<code>TransactionSynchronizationManager</code>). Your repositories find that same bound connection — that's how multiple DAO calls join one transaction with zero passing-around. On normal return → commit; on qualifying exception → rollback; either way the connection is unbound and returned to the pool.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant C as Caller
+    participant P as Proxy
+    participant I as TxInterceptor
+    participant TM as TxManager
+    participant S as Your Service
+    participant DB as DB conn (ThreadLocal)
+    C->>P: placeOrder()
+    P->>I: intercept
+    I->>TM: getTransaction(REQUIRED)
+    TM->>DB: acquire conn, autoCommit=false, bind to thread
+    I->>S: proceed to real method
+    S->>DB: repo calls reuse bound conn
+    S-->>I: return or throw
+    alt normal return
+        I->>TM: commit
+    else RuntimeException
+        I->>TM: rollback
+    end
+    TM->>DB: unbind, release to pool
+</pre>
+<div class="say">@Transactional is an around-advice on a proxy: begin via the transaction manager, bind the connection to the thread so all repository calls share it, commit on return, rollback on unchecked exceptions.</div>
+
+<h3>2.2 The self-invocation trap <span class="badge high">HIGH</span></h3>
+<p><b>Why:</b> the transaction lives in the proxy, and <code>this</code> is the raw target — an internal call <code>this.methodB()</code> never crosses the proxy, so <code>methodB</code>'s @Transactional (or its REQUIRES_NEW) is silently ignored. Same reason <code>private</code>/<code>final</code> methods can't be advised: CGLIB overrides public/protected methods in a subclass; private ones aren't inherited, final ones can't be overridden.</p>
+<p><b>Fixes, best first:</b> move methodB to another bean; or inject your own proxy (<code>ObjectProvider&lt;Self&gt;</code> / self-autowire with @Lazy); avoid <code>AopContext.currentProxy()</code> except as a last resort (requires exposeProxy=true).</p>
+<div class="say">Self-invocation bypasses the proxy because 'this' is the raw object — so internal @Transactional/@Async/@Cacheable calls silently do nothing; the clean fix is moving the method to a collaborator.</div>
+
+<h3>2.3 Propagation — what happens at a tx boundary meeting another <span class="badge high">HIGH</span></h3>
+<ul>
+  <li><b>REQUIRED (default):</b> join the caller's tx, or start one. One physical tx → an inner failure marks the <i>shared</i> tx rollback-only.</li>
+  <li><b>REQUIRES_NEW:</b> <i>suspend</i> the caller's tx (its connection is parked), acquire a <b>second connection</b>, run an independent tx. Use: audit logs / outbox rows that must survive the business rollback. Cost: two pooled connections held by one thread → pool-exhaustion deadlocks under load.</li>
+  <li><b>NESTED:</b> JDBC <b>savepoint</b> inside the same tx — inner rollback rewinds to the savepoint, outer can continue. Works with JDBC/JdbcTemplate; JpaTransactionManager doesn't support savepoints for JPA — verify on your stack.</li>
+  <li><b>MANDATORY</b> (throw if no tx), <b>NEVER</b> (throw if tx), <b>SUPPORTS</b> (join if present), <b>NOT_SUPPORTED</b> (suspend, run non-tx): assertion/utility semantics.</li>
+</ul>
+<div class="say">REQUIRED shares one physical transaction; REQUIRES_NEW suspends and opens a second connection — independent but a pool-deadlock risk; NESTED is a savepoint in the same transaction, and JPA generally doesn't support it.</div>
+
+<h3>2.4 Rollback rules <span class="badge high">HIGH</span></h3>
+<p><b>Default:</b> rollback on <code>RuntimeException</code> and <code>Error</code>; <b>checked exceptions COMMIT</b>. Why: EJB heritage — checked exceptions were deemed "business outcomes", unchecked "bugs". Override per method: <code>@Transactional(rollbackFor = Exception.class)</code>.</p>
+<p><b>The rollback-only trap:</b> with REQUIRED, if an inner advised method throws a RuntimeException, the interceptor marks the shared tx rollback-only <i>even if the outer method catches the exception</i>. The outer commit then throws <code>UnexpectedRollbackException</code>. Catching the exception does not un-mark the transaction.</p>
+<div class="say">Runtime exceptions roll back, checked exceptions commit by default — and once an inner advised method marks the shared transaction rollback-only, catching its exception outside can't save the commit; you get UnexpectedRollbackException.</div>
+
+<h3>2.5 Isolation levels — DB anomalies <span class="badge high">HIGH</span></h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Level</th><th>Dirty read</th><th>Non-repeatable read</th><th>Phantom</th><th>Note</th></tr>
+  <tr><td>READ_UNCOMMITTED</td><td>possible</td><td>possible</td><td>possible</td><td>rarely used; Postgres treats as READ_COMMITTED</td></tr>
+  <tr><td>READ_COMMITTED</td><td>no</td><td>possible</td><td>possible</td><td>default in Postgres/Oracle</td></tr>
+  <tr><td>REPEATABLE_READ</td><td>no</td><td>no</td><td>possible*</td><td>default in MySQL/InnoDB (*InnoDB largely prevents phantoms via gap locks)</td></tr>
+  <tr><td>SERIALIZABLE</td><td>no</td><td>no</td><td>no</td><td>full ordering; retry on serialization failures</td></tr>
+</table>
+</div>
+<p><code>@Transactional(isolation = ...)</code> sets it on the connection for that tx; DEFAULT means "whatever the DB defaults to" — so behavior differs between MySQL and Postgres with identical code. Isolation applies per-transaction, and only where a new tx starts (joining an existing tx keeps its isolation; Spring by default ignores the mismatch unless validation is enabled).</p>
+<div class="say">Isolation is enforced by the database, not Spring — Spring just sets it on the connection; DEFAULT inherits the vendor default, which is READ_COMMITTED on Postgres but REPEATABLE_READ on MySQL.</div>
+
+<h3>2.6 readOnly, timeout, and choosing managers <span class="badge nice">know it</span></h3>
+<p><code>readOnly=true</code> is a hint: Hibernate sets FlushMode.MANUAL (skips dirty-checking → real memory/CPU win, changes silently not saved), some drivers/routers use it to route to replicas. It is <b>not</b> a security boundary — writes may still succeed on some stacks. <code>timeout</code> caps seconds before the tx manager forces rollback on the next DB operation. Multiple datasources → one <code>PlatformTransactionManager</code> each, selected via <code>@Transactional("otherTxManager")</code>; spanning two DBs atomically needs JTA/XA or (usually better) the outbox pattern.</p>
+<div class="say">readOnly is an optimization hint — Hibernate stops dirty-checking — not an enforcement; and one @Transactional spans exactly one transaction manager, so two databases need JTA or an outbox design.</div>
+
+<h2>3. Clean Code Examples</h2>
+
+<h3>3.1 Idiomatic service-layer transaction</h3>
+<div class="right"><span class="label">Idiomatic (Boot 3)</span>
+<pre class="code">@Service
+public class TransferService {
+    private final AccountRepo accounts;
+    TransferService(AccountRepo accounts) { this.accounts = accounts; }
+
+    @Transactional   // org.springframework.transaction.annotation.Transactional
+    public void transfer(long fromId, long toId, BigDecimal amt) {
+        accounts.debit(fromId, amt);     // same thread-bound connection
+        accounts.credit(toId, amt);      // both commit or both roll back
+    }
+}</pre>
+<p>Throw a RuntimeException between the two calls → the debit is rolled back. That's the whole point.</p>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Transactional
+public void transfer(...) {
+    try {
+        accounts.debit(fromId, amt);
+        accounts.credit(toId, amt);
+    } catch (Exception e) {
+        log.error("failed", e);      // swallowed → interceptor never sees it
+    }                                 // → COMMITS the half-done debit
+}</pre>
+<p><b>Why it fails:</b> rollback is triggered by an exception <i>propagating out through the proxy</i>. Swallow it and the interceptor sees a normal return → commit. Log-and-rethrow, or use <code>TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()</code> if you must catch.</p>
+</div>
+
+<h3>3.2 The self-invocation bug, concretely</h3>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Service
+public class OrderService {
+    public void placeOrder(Order o) {     // NOT transactional
+        validate(o);
+        saveWithTx(o);                    // this.saveWithTx — bypasses proxy!
+    }
+    @Transactional
+    public void saveWithTx(Order o) { /* runs with NO transaction */ }
+}</pre>
+<p><b>Why it fails:</b> the call never leaves the raw object, so the interceptor never runs; each repository call auto-commits individually. No error, no warning — just no atomicity.</p>
+</div>
+<div class="right"><span class="label">Idiomatic fix</span>
+<pre class="code">@Service
+public class OrderService {
+    private final OrderPersister persister;   // separate bean = real proxy call
+    OrderService(OrderPersister persister) { this.persister = persister; }
+    public void placeOrder(Order o) { validate(o); persister.save(o); }
+}
+
+@Component
+class OrderPersister {
+    @Transactional
+    public void save(Order o) { /* transactional for real */ }
+}</pre>
+</div>
+
+<h3>3.3 REQUIRES_NEW for an audit trail</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Component
+public class AuditWriter {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void record(String event) {
+        auditRepo.save(new Audit(event));   // commits even if caller rolls back
+    }
+}
+// Caller: audit.record("attempted"); then business logic that may throw.
+// Result: business rows rolled back, audit row committed.</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Transactional
+public void process() {
+    audit.record("attempted");   // audit ALSO @Transactional(REQUIRED)
+    risky();                      // throws → everything rolls back,
+}                                 // including the audit row you needed</pre>
+<p><b>Why it fails:</b> REQUIRED joins the same physical tx — the audit write shares the caller's fate. (And beware: making it REQUIRES_NEW but calling it via <code>this</code> re-introduces the self-invocation bug.)</p>
+</div>
+
+<h3>3.4 Checked exception commits — the silent one</h3>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">@Transactional
+public void importFile(Path p) throws IOException {
+    repo.saveBatch(parse(p));
+    archive(p);          // throws IOException (checked)
+}                         // tx COMMITS the batch — checked = no rollback</pre>
+</div>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">@Transactional(rollbackFor = Exception.class)
+public void importFile(Path p) throws IOException { ... }</pre>
+<p><b>Why the default exists:</b> Spring inherited EJB's "checked exceptions are expected business outcomes" convention. Most teams standardize <code>rollbackFor = Exception.class</code> on anything that throws checked exceptions.</p>
+</div>
+
+<h2>4. Tricks, Tips &amp; Rules of Thumb</h2>
+<ul>
+  <li><b>Mnemonic "RUN Commits Checked"</b> — <b>RU</b>ntime rolls back, <b>C</b>hecked <b>C</b>ommits. If a method throws checked exceptions, decide rollbackFor explicitly.</li>
+  <li><b>Put @Transactional on the service layer</b>, on <b>public</b> methods, on <b>classes Spring instantiates</b> — never rely on it on private/final/internal-called methods. Annotate the concrete class (or the method), not just an interface, when using CGLIB.</li>
+  <li><b>Keep transactions short:</b> no HTTP calls, no Kafka publish, no heavy computation inside a tx — you're holding a pooled connection and row locks the whole time. Fetch → compute → short tx to write.</li>
+  <li><b>@Transactional + @Async on the same method:</b> the tx does not follow the thread — the async method needs its own @Transactional (ThreadLocal binding!).</li>
+  <li><b>Test trap:</b> @Transactional on a @SpringBootTest rolls everything back after each test — great for isolation, but it can hide flush/constraint errors that only fire at commit; use <code>TestEntityManager.flush()</code> or @Commit when verifying real commit behavior.</li>
+  <li><b>Pool-deadlock rule of thumb:</b> nesting REQUIRES_NEW under load needs pool size &gt; concurrent-threads × connections-per-thread; otherwise all threads hold conn #1 waiting for conn #2.</li>
+  <li><b>Version gotchas:</b> Boot 3/Spring 6: prefer Spring's <code>@Transactional</code> over <code>jakarta.transaction.Transactional</code> (Spring's has propagation/isolation/rollbackFor attributes). Boot auto-configures the right PlatformTransactionManager; you rarely define one. Hibernate 6 (Boot 3) changed flush/dirty-check details but not the model.</li>
+  <li><b>Debug trick:</b> <code>logging.level.org.springframework.transaction.interceptor=TRACE</code> logs "Getting transaction for" / "Completing transaction for" — the fastest way to prove whether your method is actually advised.</li>
+</ul>
+
+<h2>5. Interview Heat Map</h2>
+<div class="table-wrap">
+<table>
+  <tr><th>Sub-concept</th><th>Asked</th><th>The trap</th><th>Crisp answer</th></tr>
+  <tr><td>How @Transactional works</td><td>Very often</td><td>"Spring modifies the bytecode"</td><td>AOP proxy + TxInterceptor + thread-bound connection</td></tr>
+  <tr><td>Self-invocation</td><td>Very often</td><td>Not knowing it fails silently</td><td>this-calls bypass the proxy; move method to another bean</td></tr>
+  <tr><td>REQUIRED vs REQUIRES_NEW</td><td>Very often</td><td>Missing the 2nd-connection cost</td><td>join vs suspend+new tx on a new connection; pool-deadlock risk</td></tr>
+  <tr><td>Rollback default</td><td>Very often</td><td>Assuming checked exceptions roll back</td><td>only unchecked by default; rollbackFor=Exception.class to change</td></tr>
+  <tr><td>Catch-inside trap</td><td>Often</td><td>UnexpectedRollbackException surprise</td><td>inner advised throw marks shared tx rollback-only; catching outside can't undo it</td></tr>
+  <tr><td>Isolation levels</td><td>Often</td><td>Attributing enforcement to Spring</td><td>DB enforces; Spring sets per-connection; vendor defaults differ</td></tr>
+  <tr><td>readOnly</td><td>Sometimes</td><td>Calling it a write-blocker</td><td>hint: Hibernate skips dirty-checking; possible replica routing; not security</td></tr>
+  <tr><td>NESTED</td><td>Sometimes</td><td>Equating it with REQUIRES_NEW</td><td>savepoint in same tx; JPA support lacking — verify per stack</td></tr>
+</table>
+</div>
+
+<h3>Top 5 questions with follow-up chains</h3>
+<ol class="qa">
+  <li><b>How does @Transactional work internally?</b>
+    <div class="follow">↳ L1: How do two repositories share one transaction without passing a connection? (ThreadLocal binding via TransactionSynchronizationManager) ↳ L2: So what happens if you spawn a thread inside the method? (new thread has no bound tx — its DB work auto-commits separately)</div></li>
+  <li><b>@Transactional on a private method — what happens?</b>
+    <div class="follow">↳ L1: Why exactly can't CGLIB advise it? (subclass can't override private/final) ↳ L2: How would you detect this in a running app? (tx interceptor TRACE logs / no proxy class on getClass())</div></li>
+  <li><b>Difference between REQUIRES_NEW and NESTED?</b>
+    <div class="follow">↳ L1: Which one survives the outer rollback? (REQUIRES_NEW only — NESTED is inside the same tx) ↳ L2: Why is REQUIRES_NEW dangerous under load? (each thread holds two pooled connections → exhaustion deadlock)</div></li>
+  <li><b>Outer method catches inner method's exception — does it commit?</b>
+    <div class="follow">↳ L1: Which condition makes the answer "no"? (inner method itself advised + REQUIRED → rollback-only flag on the shared tx) ↳ L2: And if the inner method was a plain unadvised call? (then catching works fine — no interceptor marked anything)</div></li>
+  <li><b>When would you change the isolation level?</b>
+    <div class="follow">↳ L1: What anomaly does REPEATABLE_READ stop that READ_COMMITTED doesn't? (same row re-read changing mid-tx) ↳ L2: Why prefer optimistic locking (@Version) over SERIALIZABLE in a web app? (no long lock waits; conflicts detected at commit and retried — scales better for low contention)</div></li>
+</ol>
+
+<h2>6. Sticky-Note Summary</h2>
+<div class="sticky">
+<ul>
+  <li>@Transactional = proxy around-advice; begin → thread-bound connection → commit/rollback.</li>
+  <li>Self-invocation, private, final ⇒ silently NOT transactional.</li>
+  <li>Default rollback: unchecked only. Checked commits. rollbackFor=Exception.class when in doubt.</li>
+  <li>Swallowing the exception inside the method ⇒ commit. Rollback needs the throw to reach the proxy.</li>
+  <li>Inner advised throw under REQUIRED ⇒ rollback-only ⇒ UnexpectedRollbackException even if caught outside.</li>
+  <li>REQUIRES_NEW = suspend + second connection (audit/outbox); pool-deadlock risk. NESTED = savepoint, same tx, not for JPA.</li>
+  <li>Isolation is the DB's job; Spring only sets it. Postgres default READ_COMMITTED, MySQL REPEATABLE_READ.</li>
+  <li>readOnly=true = no dirty-checking (perf), maybe replica routing — not write protection.</li>
+  <li>Keep tx short: no remote calls inside; you hold a connection + locks.</li>
+  <li>New thread = no transaction. @Async methods need their own.</li>
+</ul>
+</div>
+
+<h3>Self-test (5 questions)</h3>
+<ol>
+  <li>A @Transactional method catches the DataAccessException from repo.save() and returns normally. The caller then gets UnexpectedRollbackException. Reconstruct exactly why.</li>
+  <li>Method A (@Transactional) calls this.b() where b is @Transactional(REQUIRES_NEW). How many transactions run?</li>
+  <li>Why does rollback happen for RuntimeException but not IOException by default, and how do you flip it?</li>
+  <li>How do two repository calls in one service method end up on the same JDBC connection?</li>
+  <li>Name two independent reasons an audit write inside a failing business method vanished, given AuditWriter.record was marked REQUIRES_NEW.</li>
+</ol>
+<details>
+  <summary>Answers</summary>
+  <ol>
+    <li>repo.save() is itself advised (SimpleJpaRepository is @Transactional): the inner interceptor saw the RuntimeException and marked the shared REQUIRED tx rollback-only before the service caught it. At the outer commit, the tx manager finds the flag and throws UnexpectedRollbackException.</li>
+    <li>One. The call via <code>this</code> never reaches the proxy, so REQUIRES_NEW is ignored; b runs inside A's transaction.</li>
+    <li>EJB-inherited convention: checked = anticipated business outcome (commit), unchecked = bug (rollback). Flip with @Transactional(rollbackFor = IOException.class) — or noRollbackFor for the reverse.</li>
+    <li>The transaction manager binds the connection to the thread in TransactionSynchronizationManager's ThreadLocal at tx start; DataSourceUtils/EntityManager lookups inside the same thread return the bound resource instead of a fresh pooled connection.</li>
+    <li>(a) It was called through <code>this</code>/same class, so REQUIRES_NEW never engaged and it rolled back with the caller; (b) the audit call happened but its exception path/order meant it ran after the throw — i.e. it was never reached. (Also acceptable: record() threw and the new tx itself rolled back.)</li>
+  </ol>
+</details>
+
+<p class="muted"><a href="spring-security.html">Next: Spring Security &rarr;</a></p>
+</main>
+
+<script src="../js/mermaid.min.js"></script>
+<script src="../js/app.js"></script>

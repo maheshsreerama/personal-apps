@@ -1,0 +1,53 @@
+name: Android APK Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/java-spring-interview-notes-3f32in
+      - main
+    paths:
+      - "interview-notes-android/**"
+      - ".github/workflows/android-release.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build signed release APK
+        working-directory: interview-notes-android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Rename APK
+        run: cp interview-notes-android/app/build/outputs/apk/release/app-release.apk interview-notes.apk
+
+      - name: Publish GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: interview-notes-v1.0.0
+          name: "Java & Spring Interview Notes v1.0.0"
+          target_commitish: ${{ github.sha }}
+          body: |
+            Offline Android app with permanent revision notes for Java/Spring Boot SDE interviews.
+
+            Topics: Java Collections, Spring Bean Lifecycle, Spring Transactions, Spring Security.
+            Each topic: mental-map diagram, mechanism-level fundamentals, idiomatic-vs-wrong code,
+            rules of thumb, interview heat map, and a sticky-note summary with self-test.
+
+            Install: download `interview-notes.apk` on your phone and open it
+            (allow "install from unknown sources"). Requires Android 8.0+.
+          files: interview-notes.apk

@@ -1,0 +1,249 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java Collections — Revision Notes</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<header class="page">
+  <a href="../index.html">&larr; All topics</a>
+  <h1>Java Collections</h1>
+  <p>HashMap internals &middot; equals/hashCode &middot; fail-fast &middot; concurrent collections</p>
+</header>
+
+<main>
+
+<h2>1. Mental Map</h2>
+<pre class="mermaid">
+flowchart TD
+    C[Collections Framework] --> IT[Iterable / Collection]
+    C --> M[Map hierarchy]
+    IT --> L[List]
+    IT --> S[Set]
+    IT --> Q[Queue / Deque]
+    L --> AL[ArrayList]:::high
+    L --> LL[LinkedList]
+    S --> HS[HashSet]:::high
+    S --> LHS[LinkedHashSet]
+    S --> TS[TreeSet]
+    M --> HM[HashMap internals]:::high
+    M --> LHM[LinkedHashMap]
+    M --> TM[TreeMap]
+    M --> CHM[ConcurrentHashMap]:::high
+    HM --> EQ[equals and hashCode contract]:::high
+    HM --> TR[Treeify: list to red-black tree]
+    C --> FF[Fail-fast vs fail-safe iterators]:::high
+    C --> IMM[Immutable: List.of, Map.of]
+    Q --> PQ[PriorityQueue]
+    Q --> AD[ArrayDeque]
+    classDef high fill:#fbbf24,stroke:#b45309,stroke-width:2px,color:#1f2530;
+</pre>
+<p class="muted">Amber nodes = HIGH interview frequency. Others = know them, but they rarely carry the interview.</p>
+
+<h2>2. The Fundamentals</h2>
+
+<h3>2.1 The hierarchy and why it exists <span class="badge nice">context</span></h3>
+<p><b>What:</b> <code>Iterable → Collection → List/Set/Queue</code>, and <code>Map</code> deliberately <i>outside</i> that tree (a Map is key→value, not a bag of elements).
+<b>Why:</b> interfaces separate <i>contract</i> (ordering? duplicates? random access?) from <i>implementation</i> (array, linked nodes, hash table, red-black tree). You pick a data structure by the contract you need and the big-O you can afford.</p>
+<div class="say">The collection interfaces encode contracts (ordering, uniqueness, access pattern); the implementations encode data-structure trade-offs — I choose by contract first, complexity second.</div>
+
+<h3>2.2 ArrayList vs LinkedList — the real mechanism <span class="badge high">HIGH</span></h3>
+<p><b>ArrayList</b> is a resizable <code>Object[]</code>. Amortized O(1) append: when full it allocates a new array of ~1.5&times; capacity and copies (<code>Arrays.copyOf</code>). Random access is O(1) because it's pointer arithmetic on a contiguous array — CPU-cache friendly. Middle insert/delete is O(n) (System.arraycopy shift).</p>
+<p><b>LinkedList</b> is a doubly-linked node chain. O(1) insert/remove <i>at a known node</i>, but O(n) to find the node; every element is a separate heap object → pointer chasing, cache-hostile, ~3&times; memory per element.</p>
+<div class="say">In practice ArrayList wins almost always — even for inserts — because contiguous memory and cache locality beat LinkedList's theoretical O(1); I'd only reach for a Deque (ArrayDeque), not LinkedList.</div>
+
+<h3>2.3 HashMap internals — the interview centrepiece <span class="badge high">HIGH</span></h3>
+<p><b>What underneath:</b> an array of buckets (<code>Node[] table</code>, default capacity 16, always a power of two). A put:</p>
+<pre class="mermaid">
+flowchart TD
+    A[put key value] --> B[h = key.hashCode]
+    B --> C[spread: h XOR h shifted right 16]
+    C --> D[index = h AND capacity-1]
+    D --> E{bucket empty?}
+    E -- yes --> F[place new Node]
+    E -- no --> G{same hash AND equals?}
+    G -- yes --> H[replace value]
+    G -- no --> I[append to chain]
+    I --> J{chain length &gt;= 8 and table &gt;= 64?}
+    J -- yes --> K[treeify to red-black tree O log n]
+    J -- no --> L[stay linked list]
+    F --> M{size &gt; capacity * 0.75?}
+    L --> M
+    M -- yes --> N[resize: double capacity, redistribute]
+    classDef hot fill:#fbbf24,stroke:#b45309,color:#1f2530;
+    class C,D,K,N hot;
+</pre>
+<ul>
+  <li><b>Why the XOR-shift ("spread")?</b> Index uses only the low bits (<code>h &amp; (n-1)</code>). Mixing the high 16 bits down protects against hashCodes that differ only in high bits.</li>
+  <li><b>Why power-of-two capacity?</b> So <code>h &amp; (n-1)</code> replaces the slower modulo, and resize can split each bucket into exactly two ("lo/hi") without rehashing every key.</li>
+  <li><b>Why load factor 0.75?</b> Space/time compromise: keeps expected bucket length ~constant so lookup stays O(1) amortized.</li>
+  <li><b>Why treeify at 8 (Java 8+)?</b> Under a decent hash, chain length 8 is astronomically improbable (Poisson ~1e-8) — so a long chain means a bad or adversarial hash; converting to a red-black tree bounds worst-case lookup at O(log n) (DoS protection).</li>
+  <li><b>null:</b> one null key allowed (hash treated as 0 → bucket 0); many null values allowed.</li>
+</ul>
+<div class="say">HashMap is a power-of-two bucket array; put spreads the hashCode, indexes with a bit-mask, resolves collisions by chaining, treeifies a bucket past 8 nodes to cap worst case at O(log n), and doubles capacity past the 0.75 load factor.</div>
+
+<h3>2.4 equals()/hashCode() contract <span class="badge high">HIGH</span></h3>
+<p><b>The contract:</b> equal objects MUST have equal hashCodes (the reverse is not required). Break it and hash-based collections silently corrupt: an object stored under one bucket can never be found again if its hashCode changed, and "duplicate" keys appear.</p>
+<p><b>Mutating a key after insertion</b> has the same effect — the entry is stranded in the old bucket. Keys should be immutable (records are perfect).</p>
+<div class="say">equals-equal implies hashCode-equal; violate it — or mutate a key's fields after insertion — and the entry becomes unreachable in its bucket, so I use immutable keys, ideally records.</div>
+
+<h3>2.5 Fail-fast vs fail-safe iteration <span class="badge high">HIGH</span></h3>
+<p><b>Mechanism:</b> ArrayList/HashMap keep a <code>modCount</code>; the iterator snapshots it at creation and compares on every <code>next()</code> — mismatch → <code>ConcurrentModificationException</code>. It's <i>best-effort debugging aid</i>, not a thread-safety guarantee (and it fires even single-threaded if you structurally modify during a for-each).</p>
+<p><b>Fail-safe:</b> <code>CopyOnWriteArrayList</code> iterates a snapshot array; <code>ConcurrentHashMap</code> iterators are weakly consistent (no CME, may or may not see concurrent updates).</p>
+<div class="say">Fail-fast is a modCount check inside the iterator — a debugging aid that also fires single-threaded; to remove while iterating I use iterator.remove() or removeIf().</div>
+
+<h3>2.6 ConcurrentHashMap — how it actually scales <span class="badge high">HIGH</span></h3>
+<p><b>Java 8+ mechanism</b> (the segment/stripe-lock story is Java 7 — outdated): CHM uses a Node table like HashMap; an insert into an <i>empty</i> bucket is a lock-free CAS; an insert into a non-empty bucket synchronizes only on that bucket's head node; reads are entirely lock-free (volatile reads). Resizing is cooperative — multiple threads help transfer buckets. <code>size()</code> is an estimate summed from striped counters (LongAdder-style).</p>
+<p><b>Contract difference:</b> no null keys or values (a null get would be ambiguous under concurrency). Compound safety comes from atomic methods: <code>computeIfAbsent</code>, <code>merge</code>, <code>putIfAbsent</code> — not from wrapping check-then-act in your own code.</p>
+<div class="say">Since Java 8 CHM does CAS for empty buckets and per-bucket synchronized for collisions with lock-free reads — and I get atomicity from computeIfAbsent/merge, never from external check-then-act.</div>
+
+<h3>2.7 Sorted &amp; ordered maps/sets <span class="badge nice">know it</span></h3>
+<p><code>TreeMap/TreeSet</code>: red-black tree, O(log n), sorted by <code>Comparable</code>/<code>Comparator</code> — the comparator, not equals, defines uniqueness (inconsistent-with-equals comparators cause "disappearing" elements). <code>LinkedHashMap</code>: HashMap + doubly-linked list through entries — insertion order, or access order with the 3-arg constructor, which plus <code>removeEldestEntry</code> gives you a 5-line LRU cache (classic interview task).</p>
+<div class="say">TreeMap trades O(1) for O(log n) to get sorted order and range queries; LinkedHashMap in access-order mode is the standard LRU-cache building block.</div>
+
+<h2>3. Clean Code Examples</h2>
+
+<h3>3.1 A correct hash key (record) vs a mutable key</h3>
+<div class="right"><span class="label">Idiomatic (Java 17)</span>
+<pre class="code">record PointKey(int x, int y) {}   // equals+hashCode generated, immutable
+
+var map = new HashMap&lt;PointKey, String&gt;();
+map.put(new PointKey(1, 2), "A");
+System.out.println(map.get(new PointKey(1, 2))); // A</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">class MutableKey { int x;  /* equals/hashCode use x */ }
+
+MutableKey k = new MutableKey(); k.x = 1;
+map.put(k, "A");
+k.x = 99;                       // key mutated AFTER insertion
+map.get(k);                     // null — hashes to a different bucket
+map.containsKey(k);             // false, yet size() == 1 → leaked entry</pre>
+<p><b>Why it fails:</b> the bucket index was computed from the old hashCode at put-time; lookups now search the wrong bucket. The entry is unreachable but still referenced → memory leak.</p>
+</div>
+
+<h3>3.2 Removing while iterating</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">users.removeIf(u -&gt; u.isInactive());          // best
+
+// or, when you need the iterator anyway:
+for (var it = users.iterator(); it.hasNext(); ) {
+    if (it.next().isInactive()) it.remove();  // updates modCount safely
+}</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">for (User u : users) {
+    if (u.isInactive()) users.remove(u);  // ConcurrentModificationException
+}</pre>
+<p><b>Why it fails:</b> <code>remove()</code> bumps the list's modCount; the hidden iterator behind for-each detects the mismatch on the next <code>next()</code>. (Trap: removing the second-to-last element can exit without CME — hasNext() returns false early — which makes the bug intermittent.)</p>
+</div>
+
+<h3>3.3 Atomic multi-map building</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">var byCity = new ConcurrentHashMap&lt;String, List&lt;User&gt;&gt;();
+byCity.computeIfAbsent(u.city(), c -&gt; new CopyOnWriteArrayList&lt;&gt;())
+      .add(u);                                    // atomic bucket creation</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">List&lt;User&gt; list = byCity.get(u.city());   // check
+if (list == null) {                        // ...then act: race window
+    list = new ArrayList&lt;&gt;();
+    byCity.put(u.city(), list);            // second thread's list is lost
+}
+list.add(u);                               // ArrayList also not thread-safe</pre>
+<p><b>Why it fails:</b> two threads can both see null and both put — one list (with its data) is overwritten. Each individual call is thread-safe; the <i>sequence</i> is not.</p>
+</div>
+
+<h3>3.4 Immutable collections (Java 9+)</h3>
+<div class="right"><span class="label">Idiomatic</span>
+<pre class="code">List&lt;String&gt; roles = List.of("ADMIN", "USER");      // truly immutable
+Map&lt;String, Integer&gt; limits = Map.of("api", 100);
+List&lt;String&gt; copy = List.copyOf(mutableSource);      // defensive copy</pre>
+</div>
+<div class="wrong"><span class="label">Common wrong way</span>
+<pre class="code">List&lt;String&gt; view = Collections.unmodifiableList(source);
+source.add("X");          // view now shows "X" — it's a live VIEW, not a copy
+Arrays.asList(1, 2, 3).add(4);   // UnsupportedOperationException
+                                  // (fixed-size view over the array, not immutable either)</pre>
+<p><b>Why it fails:</b> <code>unmodifiableList</code> wraps, doesn't copy — mutations to the source leak through. <code>Arrays.asList</code> is a fixed-size adapter: set() works, add() throws. Also note <code>List.of</code> rejects nulls.</p>
+</div>
+
+<h2>4. Tricks, Tips &amp; Rules of Thumb</h2>
+<ul>
+  <li><b>Default choice table:</b> need order of insertion → <code>ArrayList</code>/<code>LinkedHashMap</code>; sorted → <code>TreeMap</code>; stack/queue → <code>ArrayDeque</code> (never <code>Stack</code>/<code>LinkedList</code>); concurrency → <code>ConcurrentHashMap</code>; read-mostly listener lists → <code>CopyOnWriteArrayList</code>.</li>
+  <li><b>Mnemonic "HAT-CLIC"</b> for HashMap numbers: <b>H</b>ashMap: capacity 16, load 0.75, <b>T</b>reeify 8 (un-treeify 6, min table 64), <b>C</b>apacity always power of two, <b>L</b>ookup O(1)→O(log n) worst, <b>I</b>ndex = hash &amp; (n-1), <b>C</b>opy on resize (double).</li>
+  <li><b>Pre-size maps:</b> <code>new HashMap&lt;&gt;(expected / 0.75f + 1)</code> — or Java 19+: <code>HashMap.newHashMap(expected)</code> — avoids rehash storms when loading bulk data.</li>
+  <li><b>hashCode of small ints/strings is deterministic per run</b> — but iteration order of HashMap is <i>unspecified</i>; never assert on it in tests. If a test needs order, use LinkedHashMap.</li>
+  <li><b>Version gotchas:</b> Java 8 added treeification + rewrote CHM (drop the "16 segments" answer). Java 9 added <code>List.of/Map.of</code>. Java 10+ <code>var</code>. Java 16 records. Java 21 adds <b>SequencedCollection</b> (<code>getFirst()/getLast()/reversed()</code> on List/Deque/LinkedHashMap) — mentioning it signals currency.</li>
+  <li><b>HashSet is a HashMap in disguise</b> — it stores elements as keys with a shared dummy value object. Every HashSet question is a HashMap question.</li>
+  <li><b>String hashCode caching:</b> String caches its hash (immutable), which is one reason Strings make cheap keys.</li>
+  <li><b>Streams tie-in:</b> <code>Collectors.toMap</code> throws on duplicate keys — always supply the merge function in prod code: <code>toMap(k, v, (a, b) -&gt; b)</code>.</li>
+</ul>
+
+<h2>5. Interview Heat Map</h2>
+<div class="table-wrap">
+<table>
+  <tr><th>Sub-concept</th><th>Asked</th><th>The trap</th><th>Crisp answer</th></tr>
+  <tr><td>HashMap put/get internals</td><td>Very often</td><td>Reciting Java 7 (no treeify, segments)</td><td>spread hash → mask index → chain → treeify ≥8 → resize at 0.75</td></tr>
+  <tr><td>equals/hashCode</td><td>Very often</td><td>"hashCode-equal implies equals-equal" (false)</td><td>equals-equal ⇒ hashCode-equal, one-directional; mutated keys strand entries</td></tr>
+  <tr><td>ConcurrentModificationException</td><td>Often</td><td>Thinking it's only multi-threaded</td><td>modCount check; fires single-threaded too; use removeIf/iterator.remove</td></tr>
+  <tr><td>ConcurrentHashMap</td><td>Often</td><td>"It locks the whole map" / segment story</td><td>CAS empty bucket, per-bucket sync, lock-free reads, atomic compute methods</td></tr>
+  <tr><td>ArrayList vs LinkedList</td><td>Often</td><td>Answering with textbook big-O only</td><td>cache locality makes ArrayList win in practice; use ArrayDeque for ends</td></tr>
+  <tr><td>HashMap vs Hashtable</td><td>Sometimes</td><td>Recommending Hashtable</td><td>Hashtable is legacy, fully synchronized; use CHM</td></tr>
+  <tr><td>LRU via LinkedHashMap</td><td>Sometimes</td><td>Forgetting accessOrder=true</td><td>3-arg ctor + removeEldestEntry override</td></tr>
+  <tr><td>Comparable vs Comparator</td><td>Sometimes</td><td>Comparator inconsistent with equals in TreeMap</td><td>natural vs external ordering; TreeMap uniqueness comes from compare()==0</td></tr>
+</table>
+</div>
+
+<h3>Top 5 questions with follow-up chains</h3>
+<ol class="qa">
+  <li><b>How does HashMap work internally?</b>
+    <div class="follow">↳ L1: Why is capacity a power of two? (bit-mask indexing + cheap resize split) ↳ L2: What changes during resize — does every key rehash? (no; each bucket splits into lo/hi by one bit)</div></li>
+  <li><b>What happens if two keys have the same hashCode?</b>
+    <div class="follow">↳ L1: When does the bucket become a tree, and why 8? (Poisson argument, DoS hardening) ↳ L2: What must keys implement to treeify well? (Comparable; else identity-hash tie-breaking)</div></li>
+  <li><b>Why must you override hashCode when you override equals?</b>
+    <div class="follow">↳ L1: What breaks in a HashSet if you don't? (duplicates stored, contains() false) ↳ L2: What if hashCode always returns 42 — is it <i>correct</i>? (contract-legal but degrades to one bucket → tree → O(log n))</div></li>
+  <li><b>HashMap vs ConcurrentHashMap under concurrent writes?</b>
+    <div class="follow">↳ L1: What can actually go wrong with plain HashMap concurrently? (lost updates; infinite resize loop was Java 7 — Java 8 can still lose data/corrupt) ↳ L2: Why does CHM forbid null? (can't distinguish "absent" from "mapped to null" without racy containsKey)</div></li>
+  <li><b>How do you remove elements while iterating a list?</b>
+    <div class="follow">↳ L1: Why does for-each throw CME? (hidden iterator + modCount) ↳ L2: Why might the buggy loop <i>not</i> throw sometimes? (removal of second-to-last element makes hasNext() false before the check)</div></li>
+</ol>
+
+<h2>6. Sticky-Note Summary</h2>
+<div class="sticky">
+<ul>
+  <li>HashMap: spread(hash) → <code>&amp; (n-1)</code> → chain → treeify at 8 (table ≥ 64) → resize at 0.75·capacity.</li>
+  <li>Power-of-two capacity = mask indexing + lo/hi bucket split on resize.</li>
+  <li>equals-equal ⇒ hashCode-equal. One direction. Keys must be immutable — use records.</li>
+  <li>Mutated/broken keys don't throw — they silently strand entries (leak + wrong lookups).</li>
+  <li>CME = modCount mismatch; single-threaded too; fix with removeIf / iterator.remove.</li>
+  <li>CHM (Java 8+): CAS empty bucket, per-bucket lock, lock-free reads, no nulls, atomic computeIfAbsent/merge.</li>
+  <li>ArrayList beats LinkedList in practice (cache locality); ArrayDeque for stack/queue.</li>
+  <li>List.of = immutable & null-hostile; unmodifiableList = live view; Arrays.asList = fixed-size adapter.</li>
+  <li>LinkedHashMap(accessOrder=true) + removeEldestEntry = instant LRU.</li>
+  <li>Java 21: SequencedCollection — getFirst/getLast/reversed across ordered collections.</li>
+</ul>
+</div>
+
+<h3>Self-test (5 questions)</h3>
+<ol>
+  <li>A key's field used in hashCode is changed after put(). What do get(), containsKey(), and size() report, and why?</li>
+  <li>Why does HashMap XOR the hashCode with itself shifted right 16 bits before indexing?</li>
+  <li>Two threads call get-check-put on a ConcurrentHashMap to lazily create a value. Is that safe? What's the correct call?</li>
+  <li>Exactly which conditions convert a HashMap bucket into a red-black tree?</li>
+  <li>Why can the "remove inside for-each" bug sometimes complete without an exception?</li>
+</ol>
+<details>
+  <summary>Answers</summary>
+  <ol>
+    <li>get/containsKey return null/false (lookup goes to the new hash's bucket; the entry sits in the old one); size() still counts it — a stranded, leaked entry.</li>
+    <li>The index uses only the low log2(n) bits; XOR-ing the high 16 bits down mixes high-bit-only differences into the index, cutting collisions from poor hashCodes.</li>
+    <li>Not safe — check-then-act is a race even on a thread-safe map; both threads can create and one value is lost. Use <code>computeIfAbsent(key, fn)</code>, which is atomic and runs fn at most once per key.</li>
+    <li>Chain length reaches 8 <i>and</i> table capacity is at least 64 (otherwise it resizes instead); the tree reverts to a list at 6 during resize.</li>
+    <li>If the removed element is the second-to-last, size shrinks so the iterator's hasNext() returns false before the next modCount check — the loop just exits early, silently skipping the last element.</li>
+  </ol>
+</details>
+
+<p class="muted"><a href="bean-lifecycle.html">Next: Spring Bean Lifecycle &rarr;</a></p>
+</main>
+
+<script src="../js/mermaid.min.js"></script>
+<script src="../js/app.js"></script>
