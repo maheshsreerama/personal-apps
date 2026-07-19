@@ -14,7 +14,7 @@ gantt
     Read twice + clarify + scope     :00, 8m
     Entities & interfaces on paper   :08, 7m
     section Build
-    Skeleton: models, enums, repos   :15, 15m
+    Skeleton — models, enums, repos  :15, 15m
     Core flow 1 (the must-work path) :30, 20m
     Core flow 2 + edge cases         :50, 15m
     section Prove
