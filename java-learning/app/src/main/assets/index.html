@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Learn Java</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header id="topbar">
+  <button id="backBtn" aria-label="Back" hidden>&#8592;</button>
+  <h1 id="barTitle">Learn Java</h1>
+  <button id="themeBtn" aria-label="Toggle theme">◐</button>
+</header>
+
+<main id="home">
+  <div class="hero">
+    <div class="hero-badge">☕ Concept of the Day</div>
+    <h2>Learn Java, One Concept at a Time</h2>
+    <p>Basics · OOP · Strings · Collections · Threads · Java 8 Streams · 100+ runnable examples with their outputs — fully offline.</p>
+  </div>
+  <input id="search" type="search" placeholder="Search concepts &amp; examples…" autocomplete="off">
+  <div id="chapterList"></div>
+</main>
+
+<main id="reader" hidden>
+  <article id="content" class="markdown"></article>
+  <nav id="pager">
+    <button id="prevBtn">&#8592; Prev</button>
+    <button id="nextBtn">Next &#8594;</button>
+  </nav>
+</main>
+
+<script src="marked.min.js"></script>
+<script src="mermaid.min.js"></script>
+<script src="content.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

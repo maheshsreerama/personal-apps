@@ -1,0 +1,87 @@
+name: Build & Release Learn Java APK
+
+on:
+  push:
+    tags: ['java-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-learning
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Regenerate chapter bundle from markdown
+        run: python3 tools/generate_content.py
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build release APK
+        run: gradle assembleRelease
+
+      - name: Name APK
+        id: apk
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="java-v${{ github.event.inputs.version }}"
+          fi
+          NAME="learn-java-${TAG}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "${NAME}"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: java-learning/${{ steps.apk.outputs.name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Learn Java ${{ steps.apk.outputs.tag }}
+          files: java-learning/${{ steps.apk.outputs.name }}
+          body: |
+            ## ☕ Learn Java — Concepts & Examples (Android app)
+
+            A complete offline Java course: every chapter teaches one concept with a
+            runnable example **and its exact output**.
+
+            **Install:** download the `.apk` below on your Android phone (8.0+), open it, and allow
+            "install from unknown sources" when prompted.
+
+            ### What's inside
+            - **14 parts, 53 chapters**: Java basics, OOP, Strings, Arrays, Exceptions,
+              Collections, Generics, Multithreading, Java 8+ (lambdas & streams), I/O &
+              serialization, inner classes
+            - **100+ runnable code examples**, each with its printed output
+            - Classic **interview programs** (fibonacci, primes, patterns, singleton…)
+            - **Tricky output-prediction quiz** + 50 rapid-fire interview Q&A
+            - Diagrams (JVM, collections hierarchy, thread lifecycle) rendered in-app
+            - Full-text search, reading progress ✓, dark/light theme
+            - 100% offline — no permissions, no network
