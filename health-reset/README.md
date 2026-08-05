@@ -7,8 +7,14 @@ Everything lives on the phone. No permissions, no network, no account.
 
 ## Install
 
-Grab the `.apk` from the [Releases page](../../releases?q=health-v), open it on an
-Android phone (8.0 / API 26+), and allow "install from unknown sources" when asked.
+Grab the `.apk` from the [Releases page](../../releases/tag/health-v1.0.0) — or take
+[`health-reset-1.0.0.apk`](health-reset-1.0.0.apk) checked in beside this README — open
+it on an Android phone (8.0 / API 26+), and allow "install from unknown sources" when
+asked.
+
+The build is signed with the standard Android debug key, which is what makes it
+installable without a keystore. It is not a Play Store signing identity: to upgrade
+in place later, the new APK has to be signed with the same key.
 
 ## What it tracks
 
