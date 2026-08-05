@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E7EAED">
+<title>Health Reset — Daily Dashboard</title>
+<style>
+  :root{
+    --paper:#E7EAED;
+    --card:#F8F9FA;
+    --ink:#11151A;
+    --slate:#626D78;
+    --hair:#CFD5DA;
+    --met:#1E6E52;
+    --miss:#93312B;
+    --warn:#8C6310;
+    --steel:#2B4C7E;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(56px + env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color:transparent;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{
+    max-width:720px;margin:0 auto;
+    padding:env(safe-area-inset-top) calc(14px + env(safe-area-inset-right)) 0 calc(14px + env(safe-area-inset-left));
+  }
+
+  /* ---------- header ---------- */
+  header{
+    border-bottom:1px solid var(--ink);
+    padding:20px 0 12px;
+    margin-bottom:18px;
+  }
+  .kicker{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--slate);
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+  }
+  h1{
+    font-size:30px;
+    line-height:1.0;
+    letter-spacing:-.03em;
+    font-weight:800;
+    margin:10px 0 4px;
+    text-transform:uppercase;
+  }
+  h1 span{display:block;color:var(--slate);font-weight:800}
+  .subhead{font-family:var(--mono);font-size:11px;color:var(--slate);letter-spacing:.04em}
+
+  /* ---------- banner ---------- */
+  .banner{
+    border-left:3px solid var(--miss);
+    background:#F5E9E7;
+    padding:10px 12px;
+    margin:14px 0 0;
+    font-size:13px;
+  }
+  .banner.ok{border-left-color:var(--met);background:#E6EFEB}
+  .banner strong{font-family:var(--mono);text-transform:uppercase;font-size:11px;letter-spacing:.1em;display:block;margin-bottom:3px}
+
+  /* ---------- sections ---------- */
+  section{margin:30px 0}
+  .eyebrow{
+    display:flex;align-items:baseline;gap:10px;
+    border-bottom:1px solid var(--hair);
+    padding-bottom:6px;margin-bottom:14px;
+  }
+  .eyebrow h2{
+    font-size:13px;font-weight:700;margin:0;
+    letter-spacing:.12em;text-transform:uppercase;
+  }
+  .eyebrow em{
+    font-family:var(--mono);font-style:normal;font-size:10px;
+    color:var(--slate);letter-spacing:.08em;margin-left:auto;
+  }
+
+  /* ---------- six tiles ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tile{
+    background:var(--card);
+    border:1px solid var(--hair);
+    border-radius:2px;
+    padding:12px 10px 10px;
+    text-align:left;
+    cursor:pointer;
+    font:inherit;color:inherit;
+    position:relative;
+    transition:background .12s ease, border-color .12s ease;
+    min-height:88px;
+  }
+  .tile:hover{border-color:var(--slate)}
+  .tile:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+  .tile .letter{
+    font-family:var(--mono);font-size:22px;font-weight:700;
+    line-height:1;letter-spacing:-.04em;
+  }
+  .tile .name{font-size:12px;font-weight:600;margin-top:6px}
+  .tile .target{font-family:var(--mono);font-size:10px;color:var(--slate);margin-top:2px}
+  .tile[aria-pressed="true"]{background:var(--met);border-color:var(--met);color:#fff}
+  .tile[aria-pressed="true"] .target{color:#BBD8CC}
+  .tile .mark{
+    position:absolute;top:9px;right:10px;
+    font-family:var(--mono);font-size:12px;color:var(--hair);
+  }
+  .tile[aria-pressed="true"] .mark{color:#fff}
+
+  /* ---------- water ---------- */
+  .water{
+    display:flex;align-items:center;gap:8px;
+    margin-top:8px;background:var(--card);
+    border:1px solid var(--hair);padding:10px 12px;
+  }
+  .water .lab{font-size:12px;font-weight:600;flex:0 0 auto}
+  .water .lab small{display:block;font-family:var(--mono);font-size:10px;color:var(--slate);font-weight:400}
+  .drops{display:flex;gap:6px;margin-left:auto}
+  .drop{
+    /* 38px, not 30 — these are thumb targets on a phone, not mouse targets */
+    width:38px;height:38px;border:1px solid var(--hair);background:#fff;
+    border-radius:2px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--slate);
+  }
+  .drop[data-on="1"]{background:var(--steel);border-color:var(--steel);color:#fff}
+  .drop:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+
+  /* ---------- heatmap ---------- */
+  .grid{display:grid;grid-template-columns:repeat(14,1fr);gap:4px}
+  .cell{
+    aspect-ratio:1;border:1px solid var(--hair);background:#fff;border-radius:1px;
+    position:relative;
+  }
+  .cell[data-score="0"]{background:#fff}
+  .cell[data-score="1"],.cell[data-score="2"]{background:#CFE0D7}
+  .cell[data-score="3"],.cell[data-score="4"]{background:#8DBBA6}
+  .cell[data-score="5"]{background:#4C9377}
+  .cell[data-score="6"]{background:var(--met);border-color:var(--met)}
+  .cell.today{outline:2px solid var(--ink);outline-offset:1px}
+  .legend{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--slate);margin-top:10px}
+  .legend i{width:12px;height:12px;display:inline-block;border:1px solid var(--hair)}
+
+  /* ---------- numbers ---------- */
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .box{background:var(--card);border:1px solid var(--hair);padding:12px}
+  .box label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);display:block}
+  .box .big{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-.04em;margin-top:4px;line-height:1}
+  .box .big small{font-size:12px;font-weight:400;color:var(--slate);letter-spacing:0}
+  .delta{font-family:var(--mono);font-size:11px;margin-top:4px}
+  .delta.down{color:var(--met)}
+  .delta.up{color:var(--miss)}
+  .delta.flat{color:var(--slate)}
+  input[type=number],select{
+    font-family:var(--mono);font-size:15px;padding:8px;width:100%;
+    border:1px solid var(--hair);background:#fff;color:var(--ink);border-radius:2px;
+  }
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--steel);outline-offset:1px}
+  .inline{display:flex;gap:6px;margin-top:8px}
+  .btn{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    background:var(--ink);color:#fff;border:1px solid var(--ink);padding:9px 14px;
+    cursor:pointer;border-radius:2px;white-space:nowrap;
+  }
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .hint{font-size:12px;color:var(--slate);margin-top:8px}
+
+  /* ---------- lifts ---------- */
+  .lift{display:grid;grid-template-columns:1fr 62px 52px 44px;gap:6px;align-items:center;margin-bottom:6px}
+  .lift .nm{font-size:13px}
+  .lift .prev{font-family:var(--mono);font-size:10px;color:var(--slate);display:block}
+  .lift input{padding:6px;font-size:13px;text-align:center}
+  .beat{font-family:var(--mono);font-size:10px;text-align:center}
+  .beat.yes{color:var(--met)}
+  .beat.no{color:var(--slate)}
+
+  /* ---------- routine ---------- */
+  .toggle{display:flex;border:1px solid var(--ink);border-radius:2px;overflow:hidden;margin-bottom:12px}
+  .toggle button{
+    flex:1;background:transparent;border:0;padding:10px 6px;cursor:pointer;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);
+  }
+  .toggle button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .tl{border-left:1px solid var(--hair);margin-left:52px}
+  .tl li{list-style:none;position:relative;padding:0 0 14px 16px;font-size:13px}
+  .tl li time{
+    position:absolute;left:-52px;width:44px;text-align:right;
+    font-family:var(--mono);font-size:11px;color:var(--slate);
+  }
+  .tl li::before{content:"";position:absolute;left:-4px;top:7px;width:7px;height:7px;background:var(--hair);border-radius:50%}
+  .tl li.key::before{background:var(--steel)}
+  .tl li.key{font-weight:600}
+  .warnnote{font-size:12px;color:var(--slate);border-top:1px solid var(--hair);padding-top:10px;margin-top:6px}
+
+  /* ---------- reference ---------- */
+  details{background:var(--card);border:1px solid var(--hair);padding:10px 12px;margin-bottom:6px}
+  summary{cursor:pointer;font-size:13px;font-weight:600}
+  details table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+  details th,details td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--hair)}
+  details th{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate)}
+  details td:last-child,details th:last-child{text-align:right;font-family:var(--mono)}
+  details ol,details ul{margin:10px 0 0;padding-left:18px;font-size:13px}
+  details li{margin-bottom:5px}
+
+  footer{border-top:1px solid var(--hair);margin-top:34px;padding:14px 0 0;font-size:11px;color:var(--slate)}
+  .status{font-family:var(--mono);font-size:10px;color:var(--slate);margin-top:8px;min-height:14px}
+
+  @media (max-width:400px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .grid{grid-template-columns:repeat(7,1fr)}
+    h1{font-size:24px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker"><span id="dayCount">day 1</span><span id="todayLabel"></span></div>
+  <h1>Health Reset<span>160 / 65</span></h1>
+  <div class="subhead">Six things a day. Everything else is optimisation.</div>
+  <div id="banner" class="banner ok" hidden><strong id="bannerTitle"></strong><span id="bannerBody"></span></div>
+</header>
+
+<section>
+  <div class="eyebrow"><h2>Today</h2><em>5S + P</em></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="water">
+    <div class="lab">Water<small>750 ml × 4 = 3 L</small></div>
+    <div class="drops" id="drops"></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow"><h2>Last 28 days</h2><em>hits per day</em></div>
+  <div class="grid" id="grid"></div>
+  <div class="legend">0<i style="background:#fff"></i><i style="background:#CFE0D7"></i><i style="background:#8DBBA6"></i><i style="background:#4C9377"></i><i style="background:#1E6E52;border-color:#1E6E52"></i>6</div>
+</section>
+
+<section>
+  <div class="eyebrow"><h2>Weight</h2><em>7-day average</em></div>
+  <div class="row">
+    <div class="box">
+      <label>Rolling average</label>
+      <div class="big" id="avgVal">—<small> kg</small></div>
+      <div class="delta flat" id="avgDelta">need 7 entries</div>
+    </div>
+    <div class="box">
+      <label>To milestone (60 kg)</label>
+      <div class="big" id="toGo">—<small> kg</small></div>
+      <div class="delta flat" id="eta"></div>
+    </div>
+  </div>
+  <div class="inline">
+    <input type="number" id="wIn" step="0.1" min="35" max="200" placeholder="Weigh-in, kg" inputmode="decimal">
+    <button class="btn" id="wSave">Log</button>
+  </div>
+  <p class="hint">Weigh first thing, after the bathroom, before food. Daily numbers are noise — only the average moves.</p>
+
+  <div class="row" style="margin-top:14px">
+    <div class="box">
+      <label>Waist</label>
+      <div class="big" id="waistVal">—<small> cm</small></div>
+      <div class="delta flat" id="waistNote">target under 80</div>
+    </div>
+    <div class="box">
+      <label>Log waist</label>
+      <div class="inline" style="margin-top:6px">
+        <input type="number" id="waistIn" step="0.5" min="50" max="150" placeholder="cm" inputmode="decimal">
+        <button class="btn ghost" id="waistSave">Save</button>
+      </div>
+      <p class="hint" style="margin-top:6px">At the navel, morning, relaxed.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow"><h2>Lifts</h2><em>progressive overload</em></div>
+  <select id="daySel" aria-label="Training day"></select>
+  <div id="liftList" style="margin-top:12px"></div>
+  <button class="btn" id="liftSave">Save session</button>
+  <p class="hint">Beat last week by one rep or one plate. If nothing moves for three weeks, the problem is sleep or protein — not the programme.</p>
+</section>
+
+<section>
+  <div class="eyebrow"><h2>Routine</h2><em>pick one, run it a fortnight</em></div>
+  <div class="toggle" id="variantToggle">
+    <button data-v="A" aria-pressed="false">Variant A · morning gym</button>
+    <button data-v="B" aria-pressed="false">Variant B · evening gym</button>
+  </div>
+  <ul class="tl" id="timeline"></ul>
+  <p class="warnnote" id="variantNote"></p>
+</section>
+
+<section>
+  <div class="eyebrow"><h2>Reference</h2><em>when you forget</em></div>
+
+  <details>
+    <summary>The three food rules</summary>
+    <ol>
+      <li><strong>Protein first.</strong> Build the meal around it, then add the rest.</li>
+      <li><strong>Half the plate is vegetables.</strong> Volume without calories.</li>
+      <li><strong>Nothing with calories gets drunk.</strong> Sugar in chai, juice, soft drinks — that's the silent 300 kcal.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>Protein anchors — pick 3 a day</summary>
+    <table>
+      <tr><th>Food</th><th>Protein</th></tr>
+      <tr><td>Chicken breast, 100 g cooked</td><td>31 g</td></tr>
+      <tr><td>Soya chunks, 50 g dry</td><td>26 g</td></tr>
+      <tr><td>Whey isolate, 1 scoop</td><td>25 g</td></tr>
+      <tr><td>Fish, 100 g</td><td>21 g</td></tr>
+      <tr><td>Paneer, 100 g</td><td>18 g</td></tr>
+      <tr><td>Greek yogurt, 150 g</td><td>15 g</td></tr>
+      <tr><td>Tofu, 100 g</td><td>11 g</td></tr>
+      <tr><td>Rajma / chana, 1 katori</td><td>8 g</td></tr>
+      <tr><td>Egg, 1 large</td><td>6 g</td></tr>
+    </table>
+    <p class="hint">Roti-dal-sabzi alone will not get you to 125 g. Add anchors deliberately.</p>
+  </details>
+
+  <details>
+    <summary>Cooking oil — the hidden calorie</summary>
+    <p class="hint">1 tbsp = 120 kcal. Measure it with an actual spoon for two weeks until you can eyeball it. This is the single most common reason a plan stalls in an Indian kitchen.</p>
+  </details>
+
+  <details>
+    <summary>If today is a wreck</summary>
+    <p class="hint">Drop everything except <strong>sleep, protein, steps</strong>. Those three, done for six months, beat a perfect plan you abandon in March.</p>
+  </details>
+
+  <details>
+    <summary>Sunday review</summary>
+    <ul>
+      <li>Average this week's weigh-ins, compare to last week's average</li>
+      <li>Waist tape (fortnightly)</li>
+      <li>Did every lift go up by a rep or a plate?</li>
+      <li>Nights with 7+ hours</li>
+      <li>Meal prep: boil eggs, portion chicken, soak rajma, chop vegetables</li>
+      <li>Plan next week's study topics alongside the meals</li>
+    </ul>
+  </details>
+</section>
+
+<footer>
+  Not medical advice. Get the blood panel before you start, and re-check the calorie target against a physician if anything in your health history changes.
+  <div class="status" id="status"></div>
+</footer>
+
+</div>
+
+<script>
+/*
+ * Storage shim.
+ *
+ * The page was written against the Claude artifact `window.storage` API. Inside the
+ * Android shell that object does not exist, so provide it with the same contract:
+ *   get(key) -> Promise<{value:string}|null>
+ *   set(key, value) -> Promise<truthy>
+ *
+ * Backed by SharedPreferences through the AndroidStore bridge when running in the
+ * app, falling back to localStorage so the same file still works in a plain browser.
+ */
+(function(){
+  "use strict";
+  if(window.storage && typeof window.storage.get === "function") return;
+
+  var native = (typeof window.AndroidStore !== "undefined" && window.AndroidStore) || null;
+
+  function read(k){
+    if(native) return native.get(k);
+    return localStorage.getItem(k);
+  }
+  function write(k, v){
+    if(native) return native.set(k, v);
+    localStorage.setItem(k, v);
+    return true;
+  }
+
+  window.storage = {
+    get: function(k){
+      try{
+        var v = read(k);
+        return Promise.resolve((v === null || v === undefined) ? null : {value:v});
+      }catch(e){ return Promise.reject(e); }
+    },
+    set: function(k, v){
+      try{ return Promise.resolve(write(k, v)); }
+      catch(e){ return Promise.reject(e); }
+    }
+  };
+})();
+</script>
+
+<script>
+(function(){
+  "use strict";
+
+  var KEY = "healthreset:v1";
+  var MILESTONE = 60;
+
+  var CHECKS = [
+    {id:"sleep",    letter:"S", name:"Sleep",    target:"7.5 h, fixed times"},
+    {id:"steps",    letter:"S", name:"Steps",    target:"8,000+"},
+    {id:"strength", letter:"S", name:"Strength", target:"3–4× a week"},
+    {id:"sunlight", letter:"S", name:"Sunlight", target:"10 min, morning"},
+    {id:"sabzi",    letter:"S", name:"Sabzi",    target:"half the plate"},
+    {id:"protein",  letter:"P", name:"Protein",  target:"125 g"}
+  ];
+
+  var SPLIT = {
+    "A — Lower":        ["Squat","Romanian deadlift","Leg press / split squat","Calf raise"],
+    "B — Upper (push)": ["Bench / DB press","Overhead press","Incline DB press","Lateral raise"],
+    "C — Lower":        ["Deadlift","Bulgarian split squat","Leg curl","Hip thrust"],
+    "D — Upper (pull)": ["Pull-up / lat pulldown","Row","Face pull","Biceps curl"]
+  };
+
+  var ROUTINES = {
+    A: {
+      note:"Recommended. Training before work means it cannot be cancelled by a late meeting, and Study Block 1 lands on the freshest brain you will have all day.",
+      rows:[
+        ["06:00","Wake. 500 ml water. No snooze.",0],
+        ["06:10","Outside — 10 min light and an easy walk",0],
+        ["06:30","Gym",1],
+        ["08:20","Breakfast, protein-anchored",0],
+        ["08:45","Study Block 1 — DSA",1],
+        ["10:00","Work starts",0],
+        ["11:30","Curd and nuts",0],
+        ["13:00","Lunch, then a 10-minute walk",0],
+        ["14:00","Last caffeine of the day",1],
+        ["17:00","Evening snack",0],
+        ["18:30","Wrap work",0],
+        ["19:00","Study Block 2 — LLD / system design",1],
+        ["20:30","Dinner",0],
+        ["21:15","15–20 min walk",0],
+        ["21:45","Wind down. Screens off.",0],
+        ["22:15","Lights out",1]
+      ]
+    },
+    B: {
+      note:"Weakness: training at 7 PM plus studying until 10 leaves you wired at bedtime. If you are lying awake past midnight for a week, that is the plan telling you to switch to A.",
+      rows:[
+        ["06:30","Wake, water, 10 min light and a walk",0],
+        ["07:00","Study Block 1 — DSA",1],
+        ["08:30","Breakfast",0],
+        ["09:30","Work starts",0],
+        ["13:00","Lunch, then a walk",0],
+        ["14:00","Last caffeine of the day",1],
+        ["18:30","Wrap work",0],
+        ["19:00","Gym",1],
+        ["20:15","Dinner",0],
+        ["20:45","Study Block 2 — LLD",1],
+        ["22:00","Wind down",0],
+        ["22:45","Lights out",1]
+      ]
+    }
+  };
+
+  // ---------- state ----------
+  var S = { days:{}, weights:{}, waist:{}, lifts:{}, variant:null, start:null };
+  var el = function(id){ return document.getElementById(id); };
+  var saveTimer = null;
+
+  function iso(d){
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  var TODAY = iso(new Date());
+
+  function status(msg){
+    el("status").textContent = msg;
+    if(msg){ setTimeout(function(){ if(el("status").textContent===msg) el("status").textContent=""; }, 2500); }
+  }
+
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      window.storage.set(KEY, JSON.stringify(S)).then(function(r){
+        status(r ? "saved " + new Date().toLocaleTimeString() : "save failed — changes are in this session only");
+      }).catch(function(){
+        status("save failed — changes are in this session only");
+      });
+    }, 350);
+  }
+
+  function load(){
+    return window.storage.get(KEY).then(function(r){
+      if(r && r.value){
+        var p = JSON.parse(r.value);
+        S.days    = p.days    || {};
+        S.weights = p.weights || {};
+        S.waist   = p.waist   || {};
+        S.lifts   = p.lifts   || {};
+        S.variant = p.variant || null;
+        S.start   = p.start   || TODAY;
+      } else { S.start = TODAY; }
+    }).catch(function(){ S.start = TODAY; });
+  }
+
+  function today(){
+    if(!S.days[TODAY]) S.days[TODAY] = {water:0};
+    return S.days[TODAY];
+  }
+  function score(d){
+    if(!d) return 0;
+    var n=0;
+    for(var i=0;i<CHECKS.length;i++){ if(d[CHECKS[i].id]) n++; }
+    return n;
+  }
+
+  // ---------- today tiles ----------
+  function renderTiles(){
+    var d = today();
+    var host = el("tiles");
+    host.textContent = "";
+    CHECKS.forEach(function(c){
+      var b = document.createElement("button");
+      b.className = "tile";
+      b.type = "button";
+      b.setAttribute("aria-pressed", d[c.id] ? "true" : "false");
+      b.innerHTML = '<span class="mark">' + (d[c.id] ? "&#10003;" : "&#9675;") + '</span>' +
+                    '<span class="letter">' + c.letter + '</span>' +
+                    '<div class="name">' + c.name + '</div>' +
+                    '<div class="target">' + c.target + '</div>';
+      b.addEventListener("click", function(){
+        var cur = today();
+        cur[c.id] = !cur[c.id];
+        save(); renderTiles(); renderGrid(); renderBanner();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  function renderDrops(){
+    var d = today();
+    var host = el("drops");
+    host.textContent = "";
+    for(var i=1;i<=4;i++){
+      (function(n){
+        var b = document.createElement("button");
+        b.className = "drop"; b.type="button";
+        b.setAttribute("data-on", (d.water||0) >= n ? "1" : "0");
+        b.setAttribute("aria-label", "Water bottle " + n + " of 4");
+        b.textContent = n;
+        b.addEventListener("click", function(){
+          var cur = today();
+          cur.water = (cur.water||0) >= n ? n-1 : n;
+          save(); renderDrops();
+        });
+        host.appendChild(b);
+      })(i);
+    }
+  }
+
+  // ---------- banner: the 2-day rule ----------
+  function renderBanner(){
+    var b = el("banner"), t = el("bannerTitle"), body = el("bannerBody");
+    var missed = [];
+    var began = S.start || TODAY;
+    for(var i=1;i<=2;i++){
+      var dt = new Date(); dt.setDate(dt.getDate()-i);
+      var k = iso(dt);
+      // A day before the reset began is not a missed day — otherwise a fresh
+      // install opens by accusing you of a two-day slide you never had.
+      if(k < began) continue;
+      if(score(S.days[k]) < 5) missed.push(k);
+    }
+    if(missed.length === 2){
+      b.hidden = false; b.className = "banner";
+      t.textContent = "Missed twice";
+      body.textContent = "One missed day is noise. Two in a row is a new pattern. Hit sleep, protein and steps today and stop the slide — nothing else matters until that's done.";
+    } else if(score(today()) === 6){
+      b.hidden = false; b.className = "banner ok";
+      t.textContent = "Full day";
+      body.textContent = "All six. Log the lifts and leave the app alone.";
+    } else {
+      b.hidden = true;
+    }
+  }
+
+  // ---------- heatmap ----------
+  function renderGrid(){
+    var host = el("grid");
+    host.textContent = "";
+    for(var i=27;i>=0;i--){
+      var dt = new Date(); dt.setDate(dt.getDate()-i);
+      var k = iso(dt);
+      var c = document.createElement("div");
+      c.className = "cell" + (k===TODAY ? " today" : "");
+      c.setAttribute("data-score", score(S.days[k]));
+      c.title = k + " — " + score(S.days[k]) + "/6";
+      host.appendChild(c);
+    }
+  }
+
+  // ---------- weight ----------
+  function sortedWeights(){
+    return Object.keys(S.weights).sort().map(function(k){ return {d:k, v:S.weights[k]}; });
+  }
+  function avgOf(arr){
+    if(!arr.length) return null;
+    var s=0; for(var i=0;i<arr.length;i++) s += arr[i].v;
+    return s/arr.length;
+  }
+  function renderWeight(){
+    var all = sortedWeights();
+    var last7 = all.slice(-7), prev7 = all.slice(-14,-7);
+    var a = avgOf(last7), p = avgOf(prev7);
+
+    if(a === null){
+      el("avgVal").innerHTML = '—<small> kg</small>';
+      el("avgDelta").className = "delta flat";
+      el("avgDelta").textContent = "no entries yet";
+      el("toGo").innerHTML = '—<small> kg</small>';
+      el("eta").textContent = "";
+      return;
+    }
+    el("avgVal").innerHTML = a.toFixed(1) + '<small> kg</small>';
+
+    if(last7.length < 7){
+      el("avgDelta").className = "delta flat";
+      el("avgDelta").textContent = last7.length + "/7 entries — average is provisional";
+    } else if(p === null){
+      el("avgDelta").className = "delta flat";
+      el("avgDelta").textContent = "one more week for a trend";
+    } else {
+      var diff = a - p;
+      var wk = Math.abs(diff);
+      var cls = diff < -0.05 ? "down" : (diff > 0.05 ? "up" : "flat");
+      var txt = (diff>0?"+":"") + diff.toFixed(2) + " kg vs last week";
+      if(cls==="down" && wk > 0.7) txt += " · too fast, eat more";
+      if(cls==="flat" || (cls==="up")) txt += " · if this holds 3 weeks, cut 150 kcal or add 2,000 steps";
+      el("avgDelta").className = "delta " + cls;
+      el("avgDelta").textContent = txt;
+    }
+
+    var togo = a - MILESTONE;
+    el("toGo").innerHTML = (togo>0 ? togo.toFixed(1) : "0.0") + '<small> kg</small>';
+    if(togo > 0){
+      var weeks = Math.round(togo / 0.375);
+      el("eta").className = "delta flat";
+      el("eta").textContent = "~" + weeks + " weeks at 0.35–0.4 kg/wk";
+    } else {
+      el("eta").className = "delta down";
+      el("eta").textContent = "milestone reached — reassess, don't just keep cutting";
+    }
+  }
+
+  function renderWaist(){
+    var ks = Object.keys(S.waist).sort();
+    if(!ks.length){
+      el("waistVal").innerHTML = '—<small> cm</small>';
+      el("waistNote").className = "delta flat";
+      el("waistNote").textContent = "target under 80 cm";
+      return;
+    }
+    var latest = S.waist[ks[ks.length-1]];
+    el("waistVal").innerHTML = latest.toFixed(1) + '<small> cm</small>';
+    var ratio = latest / 160;
+    var cls = ratio < 0.5 ? "down" : (latest < 90 ? "flat" : "up");
+    el("waistNote").className = "delta " + cls;
+    el("waistNote").textContent = "waist-to-height " + ratio.toFixed(2) +
+      (ratio < 0.5 ? " · under 0.5, good" : " · aim under 0.5 (80 cm)");
+  }
+
+  // ---------- lifts ----------
+  function renderLifts(){
+    var day = el("daySel").value;
+    var host = el("liftList");
+    host.textContent = "";
+    SPLIT[day].forEach(function(name){
+      var rec = (S.lifts[day] && S.lifts[day][name]) || null;
+      var wrap = document.createElement("div");
+      wrap.className = "lift";
+
+      var nm = document.createElement("div");
+      nm.className = "nm";
+      nm.innerHTML = name + '<span class="prev">' +
+        (rec ? "last " + rec.w + " kg × " + rec.r + " · " + rec.d : "no data yet") + '</span>';
+
+      var w = document.createElement("input");
+      w.type="number"; w.step="0.5"; w.min="0"; w.placeholder="kg";
+      w.setAttribute("inputmode","decimal");
+      w.setAttribute("aria-label", name + " weight in kg");
+      w.dataset.f="w"; w.dataset.n=name;
+
+      var r = document.createElement("input");
+      r.type="number"; r.step="1"; r.min="0"; r.placeholder="reps";
+      r.setAttribute("inputmode","numeric");
+      r.setAttribute("aria-label", name + " reps");
+      r.dataset.f="r"; r.dataset.n=name;
+
+      var flag = document.createElement("div");
+      flag.className="beat no"; flag.textContent = rec ? "—" : "";
+
+      function check(){
+        if(!rec || !w.value || !r.value){ flag.textContent = rec ? "—" : ""; flag.className="beat no"; return; }
+        var better = (+w.value > rec.w) || (+w.value === rec.w && +r.value > rec.r);
+        flag.textContent = better ? "up" : "same";
+        flag.className = "beat " + (better ? "yes" : "no");
+      }
+      w.addEventListener("input", check);
+      r.addEventListener("input", check);
+
+      wrap.appendChild(nm); wrap.appendChild(w); wrap.appendChild(r); wrap.appendChild(flag);
+      host.appendChild(wrap);
+    });
+  }
+
+  el("liftSave") && el("liftSave").addEventListener("click", function(){
+    var day = el("daySel").value;
+    if(!S.lifts[day]) S.lifts[day] = {};
+    var inputs = el("liftList").querySelectorAll("input");
+    var byName = {};
+    Array.prototype.forEach.call(inputs, function(i){
+      byName[i.dataset.n] = byName[i.dataset.n] || {};
+      byName[i.dataset.n][i.dataset.f] = i.value;
+    });
+    var saved = 0;
+    Object.keys(byName).forEach(function(n){
+      var v = byName[n];
+      if(v.w && v.r){ S.lifts[day][n] = {w:+v.w, r:+v.r, d:TODAY}; saved++; }
+    });
+    if(!saved){ status("nothing to save — enter weight and reps"); return; }
+    var cur = today();
+    cur.strength = true;
+    save(); renderLifts(); renderTiles(); renderGrid(); renderBanner();
+    status(saved + " lifts saved · strength ticked");
+  });
+
+  // ---------- routine ----------
+  function renderRoutine(){
+    var v = S.variant;
+    Array.prototype.forEach.call(el("variantToggle").querySelectorAll("button"), function(b){
+      b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false");
+    });
+    var tl = el("timeline");
+    tl.textContent = "";
+    if(!v){
+      el("variantNote").textContent = "Undecided is the worst option. Pick either one and run it for two weeks — the data will tell you which fits. A is the better bet if 6 AM is even slightly plausible for you.";
+      return;
+    }
+    ROUTINES[v].rows.forEach(function(row){
+      var li = document.createElement("li");
+      if(row[2]) li.className = "key";
+      li.innerHTML = '<time>' + row[0] + '</time>' + row[1];
+      tl.appendChild(li);
+    });
+    el("variantNote").textContent = ROUTINES[v].note;
+  }
+
+  // ---------- wiring ----------
+  function renderHeader(){
+    var d = new Date();
+    el("todayLabel").textContent = d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+    var start = new Date(S.start || TODAY);
+    var n = Math.max(1, Math.round((d - start)/86400000) + 1);
+    el("dayCount").textContent = "day " + n + " of 112";
+  }
+
+  el("wSave").addEventListener("click", function(){
+    var v = parseFloat(el("wIn").value);
+    if(isNaN(v) || v < 35 || v > 200){ status("enter a weight between 35 and 200 kg"); return; }
+    S.weights[TODAY] = v; el("wIn").value = "";
+    save(); renderWeight(); status("weigh-in logged");
+  });
+
+  el("waistSave").addEventListener("click", function(){
+    var v = parseFloat(el("waistIn").value);
+    if(isNaN(v) || v < 50 || v > 150){ status("enter a waist between 50 and 150 cm"); return; }
+    S.waist[TODAY] = v; el("waistIn").value = "";
+    save(); renderWaist(); status("waist logged");
+  });
+
+  Array.prototype.forEach.call(el("variantToggle").querySelectorAll("button"), function(b){
+    b.addEventListener("click", function(){
+      S.variant = (S.variant === b.dataset.v) ? null : b.dataset.v;
+      save(); renderRoutine();
+    });
+  });
+
+  Object.keys(SPLIT).forEach(function(k){
+    var o = document.createElement("option"); o.value = k; o.textContent = k;
+    el("daySel").appendChild(o);
+  });
+  el("daySel").addEventListener("change", renderLifts);
+
+  load().then(function(){
+    renderHeader(); renderTiles(); renderDrops(); renderBanner();
+    renderGrid(); renderWeight(); renderWaist(); renderLifts(); renderRoutine();
+  });
+})();
+</script>
+</body>
+</html>

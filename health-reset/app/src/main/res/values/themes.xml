@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dashboard is a single light "paper" design, so the shell stays light in
+         both system modes and algorithmic darkening is refused. -->
+    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#E7EAED</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#E7EAED</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

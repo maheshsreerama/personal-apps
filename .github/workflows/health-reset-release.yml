@@ -1,0 +1,84 @@
+name: Build & Release Health Reset APK
+
+on:
+  push:
+    tags: ['health-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: health-reset
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build release APK
+        run: gradle assembleRelease
+
+      - name: Name APK
+        id: apk
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="health-v${{ github.event.inputs.version }}"
+          fi
+          NAME="health-reset-${TAG#health-v}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "${NAME}"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: health-reset/${{ steps.apk.outputs.name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Health Reset ${{ steps.apk.outputs.tag }}
+          files: health-reset/${{ steps.apk.outputs.name }}
+          body: |
+            ## 🌱 Health Reset — Daily Dashboard (Android app)
+
+            Six things a day. Everything else is optimisation.
+
+            **Install:** download the `.apk` below on your Android phone (8.0+), open it, and allow
+            "install from unknown sources" when prompted.
+
+            ### What's inside
+            - **The six daily checks** — sleep, steps, strength, sunlight, sabzi, protein — plus a 3 L water tracker
+            - **28-day heatmap** of hits per day, so a slide is visible before it becomes a habit
+            - **Two-day rule banner**: one missed day is noise, two in a row gets called out
+            - **Weight**: 7-day rolling average, week-on-week delta, and distance to the 60 kg milestone —
+              with coaching when the loss is too fast or has stalled
+            - **Waist** tracking against waist-to-height 0.5
+            - **Lifts**: 4-day split with last week's numbers shown, and an up/same flag for progressive overload
+            - **Routine**: two full daily timelines (morning vs evening gym) — pick one, run it a fortnight
+            - **Reference**: food rules, protein anchors table, cooking-oil warning, Sunday review
+            - 100% offline — no permissions, no network, no account. Data stays on the phone.
