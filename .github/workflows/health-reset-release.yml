@@ -3,6 +3,13 @@ name: Build & Release Health Reset APK
 on:
   push:
     tags: ['health-v*']
+    # Bootstrap trigger: the v1.0.0 release is cut from this branch, since the
+    # workflow must reach the default branch before workflow_dispatch is offered.
+    # Removed once the release exists — tags are the standing trigger.
+    branches: ['claude/android-apk-build-release-5imlve']
+    paths:
+      - 'health-reset/**'
+      - '.github/workflows/health-reset-release.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -43,7 +50,13 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF_NAME}"
           else
-            TAG="health-v${{ github.event.inputs.version }}"
+            # Dispatch supplies a version; a branch push falls back to the
+            # versionName in build.gradle so the two cannot drift apart.
+            VERSION="${{ github.event.inputs.version }}"
+            if [[ -z "${VERSION}" ]]; then
+              VERSION="$(sed -nE "s/.*versionName '(.*)'.*/\1/p" app/build.gradle)"
+            fi
+            TAG="health-v${VERSION}"
           fi
           NAME="health-reset-${TAG#health-v}.apk"
           cp app/build/outputs/apk/release/app-release.apk "${NAME}"
