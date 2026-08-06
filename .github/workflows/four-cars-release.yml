@@ -43,8 +43,11 @@ jobs:
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF_NAME}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            TAG="cars-v${{ github.event.inputs.version }}"
           else
-            TAG="cars-v${{ github.event.inputs.version || '0.0.0-dev' }}"
+            # Branch build: take the version straight from the app, single source of truth.
+            TAG="cars-v$(sed -nE "s/.*versionName '(.*)'.*/\1/p" app/build.gradle)"
           fi
           NAME="four-cars-${TAG}.apk"
           cp app/build/outputs/apk/release/app-release.apk "${NAME}"
@@ -57,8 +60,14 @@ jobs:
           name: four-cars-apk
           path: four-cars/${{ steps.apk.outputs.name }}
 
+      # Publishes on a `cars-v*` tag, on a manual run, or when a commit message carries
+      # `[release]` — the last one exists because tags cannot always be pushed directly, and
+      # this job's `contents: write` token can create the tag itself.
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        if: >-
+          startsWith(github.ref, 'refs/tags/')
+          || github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[release]')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.apk.outputs.tag }}
