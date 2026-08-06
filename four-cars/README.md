@@ -45,12 +45,13 @@ between demands — comfortably longer than the ~0.12 s a car takes to change la
 - **Fixed 1/240 s physics sub-steps** under a real-time frame delta: identical behaviour at 60, 90
   and 120 Hz, and obstacles can't tunnel through a car at top speed.
 - **No allocation on the hot path.** Obstacles and particles are fixed pools, paints and rects are
-  reused, the score string is only rebuilt when the score changes. Nothing for the GC to collect,
-  so nothing to stutter on.
+  reused, the score and best-score labels are only rebuilt when those numbers change. Nothing for
+  the GC to collect, so nothing to stutter on.
 - **Generous pickups, forgiving hazards.** A circle clipped mid-switch still counts; a square's
   corner doesn't kill. Both hitboxes stay well inside one lane width, so the neighbouring lane is
   never reachable by accident.
-- Sound is synthesised into static `AudioTrack` buffers at first use — no file decode mid-run.
+- Sound is synthesised into static `AudioTrack` buffers on a background thread at startup — no
+  file decode mid-run, and no first-play hitch.
 
 ## Build
 
