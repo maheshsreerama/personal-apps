@@ -64,7 +64,9 @@ class Game {
     private int score;
     private int best;
     private boolean newBest;
+    // Cached so the hot path never builds a string: both change only on a scoring event.
     private String scoreText = "0";
+    private String bestText;
 
     private final int[] carLane = new int[ROADS];
     private final float[] carX = new float[ROADS];
@@ -113,6 +115,7 @@ class Game {
     Game(Context context) {
         prefs = context.getSharedPreferences("four-cars", Context.MODE_PRIVATE);
         best = prefs.getInt("best", 0);
+        bestText = "BEST " + best;
         soundOn = prefs.getBoolean("sound", true);
         sfx = new Sfx();
         for (int i = 0; i < MAX_ITEMS; i++) items[i] = new Item();
@@ -253,6 +256,7 @@ class Game {
         shake = 1f;
         if (score > best) {
             best = score;
+            bestText = "BEST " + best;
             newBest = true;
             prefs.edit().putInt("best", best).apply();
         }
@@ -523,7 +527,7 @@ class Game {
         canvas.drawText(scoreText, w * 0.5f, h * 0.115f, text);
         text.setColor(0x66FFFFFF);
         text.setTextSize(h * 0.021f);
-        canvas.drawText("BEST " + best, w * 0.5f, h * 0.148f, text);
+        canvas.drawText(bestText, w * 0.5f, h * 0.148f, text);
     }
 
     private void drawOverlay(Canvas canvas) {
@@ -545,7 +549,7 @@ class Game {
 
             text.setColor(0x66FFFFFF);
             text.setTextSize(h * 0.020f);
-            canvas.drawText("BEST " + best, w * 0.5f, h * 0.63f, text);
+            canvas.drawText(bestText, w * 0.5f, h * 0.63f, text);
             drawPrompt(canvas, "TAP TO START", h * 0.70f);
         } else if (state == PAUSED) {
             text.setColor(0xFFFFFFFF);
@@ -567,7 +571,7 @@ class Game {
 
             text.setColor(newBest ? 0xFF2ED573 : 0x88FFFFFF);
             text.setTextSize(h * 0.024f);
-            canvas.drawText(newBest ? "NEW BEST!" : "BEST " + best, w * 0.5f, h * 0.53f, text);
+            canvas.drawText(newBest ? "NEW BEST!" : bestText, w * 0.5f, h * 0.53f, text);
 
             if (overTime > 0.7f) drawPrompt(canvas, "TAP TO RETRY", h * 0.66f);
         }

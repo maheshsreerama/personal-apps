@@ -8,8 +8,8 @@ import java.util.Random;
 
 /**
  * Three tiny synthesised sounds. Nothing is loaded from disk — the waveforms are generated once at
- * first use into static {@link AudioTrack} buffers, so playback is a start() call with no decode
- * and no file I/O on the render thread.
+ * startup into static {@link AudioTrack} buffers, so playback is a start() call with no decode and
+ * no file I/O on the render thread.
  *
  * <p>Every call is best-effort: if audio is unavailable the game just runs silent.
  */
