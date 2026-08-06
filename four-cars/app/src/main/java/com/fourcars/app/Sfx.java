@@ -22,8 +22,17 @@ class Sfx {
     private final AudioTrack[] crash = new AudioTrack[1];
     private int collectIdx, blipIdx;
 
-    private boolean ready;
-    private boolean broken;
+    private volatile boolean ready;
+    private volatile boolean broken;
+
+    Sfx() {
+        // Synthesise and hand the buffers to the audio HAL up front, off the render thread.
+        // Doing it lazily would cost a dropped frame on the first circle collected.
+        Thread warm = new Thread(this::init, "four-cars-sfx-warmup");
+        warm.setPriority(Thread.MIN_PRIORITY);
+        warm.setDaemon(true);
+        warm.start();
+    }
 
     void collect() {
         if (!init()) return;
@@ -40,7 +49,8 @@ class Sfx {
         play(crash[0]);
     }
 
-    private boolean init() {
+    /** Synchronized so the warm-up thread and a first play can race without building twice. */
+    private synchronized boolean init() {
         if (ready) return true;
         if (broken) return false;
         try {

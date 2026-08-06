@@ -49,7 +49,7 @@ jobs:
             # Branch build: take the version straight from the app, single source of truth.
             TAG="cars-v$(sed -nE "s/.*versionName '(.*)'.*/\1/p" app/build.gradle)"
           fi
-          NAME="four-cars-${TAG}.apk"
+          NAME="four-cars-${TAG#cars-v}.apk"
           cp app/build/outputs/apk/release/app-release.apk "${NAME}"
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
