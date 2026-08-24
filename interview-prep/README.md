@@ -33,9 +33,15 @@ against the minutes you planned. Underneath, the day's problems; above, anything
 ladder says is due, and on a gate day, a reminder that a gate you walk through without scoring
 is not a gate you passed.
 
+A stepper at the top walks you to any day in the plan — back to yesterday to finish what you
+left, forward to read what is coming. Blocks you check and problems you rate land on the day
+you are looking at, not on today, so catching up records honestly. The header says how far off
+you are (`3d back`, `8d ahead`) and a single button returns you to the calendar day; so does
+the Android back button. Revisions are owed as of today, so that banner only appears on today.
+
 **Plan** — all 84 days as a single grid, each cell filling with its phase colour as you work
 through it, gates outlined, today ringed. Below it, the twelve weeks, expandable to their days.
-Tap any day, past or future, to open and work it.
+Tap any day, past or future, and it opens in Today, ready to work.
 
 **Log** — every problem you have rated, on a spaced-repetition ladder. Rate a problem **N**
 (missed, or needed the solution), **~** (needed a hint) or **Y** (clean and unaided). A clean

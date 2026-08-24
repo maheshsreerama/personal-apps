@@ -176,3 +176,14 @@ textarea{resize:vertical;min-height:64px}
 .wk-b .bar{display:block;width:100%}
 .seg button{padding-left:5px;padding-right:5px}
 .dayrow .pill{flex:none}
+
+/* day stepper — the TODAY tab is a place you can walk backwards and forwards in */
+.daynav{display:flex;align-items:center;gap:8px;margin:16px 0 8px}
+.daynav .nb{width:44px;height:44px;flex:none;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:19px;line-height:1;color:var(--muted)}
+.daynav .nb.off{opacity:.28}
+.daynav .nb:active{background:var(--surface2)}
+.dn-mid{flex:1;min-width:0;text-align:center;padding:3px 2px}
+.dn-mid b{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:-.01em}
+.dn-mid span{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.backto{display:block;width:100%;text-align:center;color:var(--acc);border-color:var(--acc);margin-bottom:4px}
+.cell.view{border-color:var(--acc);box-shadow:0 0 0 2px rgba(110,127,216,.18)}

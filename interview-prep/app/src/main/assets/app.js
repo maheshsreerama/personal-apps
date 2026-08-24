@@ -37,6 +37,9 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e
 let tab = 'today';
 let filter = 'all';
 let openWeeks = {};
+/* 0 = follow the calendar. Anything else is the day you have navigated to, so
+   yesterday's blocks stay checkable and tomorrow's are readable. */
+let viewDay = 0;
 
 /* ── dates ──────────────────────────────────────────────── */
 const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * DAY_MS / 1440).toISOString().slice(0, 10);
@@ -50,6 +53,13 @@ function today() {
   return clamp(n, 1, 84);
 }
 function dateOf(day) { return new Date(midnight(S.start) + (day - 1) * DAY_MS); }
+/** The day on screen — the calendar day unless you have navigated away from it. */
+function curDay() { return viewDay || today(); }
+/** Navigate. Landing back on the calendar day clears the override entirely. */
+function goDay(d) {
+  d = clamp(d, 1, 84);
+  viewDay = d === today() ? 0 : d;
+}
 const fmt = d => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 /* ── derived ────────────────────────────────────────────── */
@@ -72,7 +82,7 @@ function dueList(day) {
 
 /** Record a verdict and schedule the next look at it. */
 function rate(name, score, pattern) {
-  const day = today() || 1;
+  const day = curDay() || 1;
   const p = S.probs[name] || { d: day, n: 0, box: 0, hist: [], pat: pattern || '', note: '' };
   if (pattern && !p.pat) p.pat = pattern;
   p.s = score;
@@ -117,13 +127,14 @@ function header() {
     document.documentElement.style.setProperty('--acc', PH[0].hex);
     return;
   }
-  const ph = phOf(t);
+  const c = curDay(), ph = phOf(c);
   document.documentElement.style.setProperty('--acc', ph.hex);
-  $('#hDay').textContent = t;
-  $('#hTitle').textContent = D[t].t;
-  $('#hSub').textContent = 'Phase ' + ph.n + ' · Wk ' + weekOf(t) + ' · ' + DOW[(t - 1) % 7] +
-    ' · ' + (minutesOf(t) / 60).toFixed(1).replace('.0', '') + 'h';
-  ring(dayPct(t));
+  $('#hDay').textContent = c;
+  $('#hTitle').textContent = D[c].t;
+  const off = c === t ? '' : c < t ? ' · ' + (t - c) + 'd back' : ' · ' + (c - t) + 'd ahead';
+  $('#hSub').textContent = 'Phase ' + ph.n + ' · Wk ' + weekOf(c) + ' · ' + DOW[(c - 1) % 7] +
+    ' · ' + (minutesOf(c) / 60).toFixed(1).replace('.0', '') + 'h' + off;
+  ring(dayPct(c));
 }
 function ring(f) {
   const C = 97.4;
@@ -168,29 +179,38 @@ function probRow(name, pattern, showMeta, showPat) {
 function viewToday() {
   const t = today();
   if (!t) return setupCard();
-  const day = D[t], ph = phOf(t);
-  let h = '';
+  const c = curDay(), day = D[c], ph = phOf(c);
 
-  if (isGate(t)) {
-    h += '<div class="ban gate"><div class="ban-t">Phase ' + ph.n + ' gate — ' + esc(ph.name) + '</div>' +
+  /* day stepper — the tap target in the middle jumps by number */
+  let h = '<div class="daynav">' +
+    '<button class="nb' + (c <= 1 ? ' off' : '') + '" data-a="prev" aria-label="Previous day">&#8592;</button>' +
+    '<button class="dn-mid" data-a="jump"><b>Day ' + c + ' of 84</b>' +
+    '<span>' + esc(day.t) + ' · ' + fmt(dateOf(c)) + '</span></button>' +
+    '<button class="nb' + (c >= 84 ? ' off' : '') + '" data-a="next" aria-label="Next day">&#8594;</button></div>';
+  if (c !== t) h += '<button class="btn sm backto" data-a="gotoday">Back to today — day ' + t + '</button>';
+
+  if (isGate(c)) {
+    h += '<div class="ban gate" style="margin-top:14px"><div class="ban-t">Phase ' + ph.n + ' gate — ' + esc(ph.name) + '</div>' +
       '<div class="hint">Score every round type 1–5 before you move on. A gate you walk through ' +
       'without scoring is a gate you did not pass.</div>' +
       '<div class="acts" style="margin-top:10px"><button class="btn sm pri" data-a="mock">Log a mock</button></div></div>';
   }
 
-  const due = dueList(t);
+  /* Revisions are owed as of the calendar day, so they only show on it. */
+  const due = c === t ? dueList(t) : [];
   if (due.length) {
-    h += '<div class="ban due"><div class="ban-t">' + due.length + ' revision' + (due.length > 1 ? 's' : '') + ' due</div>' +
+    h += '<div class="ban due" style="margin-top:14px"><div class="ban-t">' + due.length + ' revision' + (due.length > 1 ? 's' : '') + ' due</div>' +
       '<div class="hint">Cold, from a blank file. Re-rate honestly — the ladder only works if you do.</div></div>' +
       '<div class="card" style="margin-bottom:20px">' + due.slice(0, 8).map(n => probRow(n, S.probs[n].pat)).join('') +
       (due.length > 8 ? '<div class="note">+ ' + (due.length - 8) + ' more in the LOG tab</div>' : '') + '</div>';
   }
 
-  h += '<div class="sec"><div class="lblrow"><div class="lbl">Day ' + t + ' · ' + esc(day.t) + '</div>' +
-    '<button class="act" data-a="jump">Jump to day</button></div>' +
-    '<div class="card blocks"><div class="strip"><div class="bar"><i style="width:' + pct(dayPct(t)) + '"></i></div>' +
-    '<div class="pc">' + minutesDone(t) + ' / ' + minutesOf(t) + 'm</div></div>' +
-    blockRows(t) + '</div></div>';
+  h += '<div class="sec"><div class="lblrow"><div class="lbl">Blocks — ' +
+    (minutesOf(c) / 60).toFixed(1).replace('.0', '') + 'h</div>' +
+    '<div class="lbl">Wk ' + weekOf(c) + ' · ' + DOW[(c - 1) % 7] + '</div></div>' +
+    '<div class="card blocks"><div class="strip"><div class="bar"><i style="width:' + pct(dayPct(c)) + '"></i></div>' +
+    '<div class="pc">' + minutesDone(c) + ' / ' + minutesOf(c) + 'm</div></div>' +
+    blockRows(c) + '</div></div>';
 
   if (day.p.length) {
     h += '<div class="sec"><div class="lbl">Problems — ' + day.p.length + '</div><div class="card">' +
@@ -198,16 +218,16 @@ function viewToday() {
       '<div class="hint" style="margin-top:8px">N = missed or needed the solution · ~ = needed a hint · Y = clean, unaided</div></div>';
   }
 
-  const note = S.notes[t] || '';
+  const note = S.notes[c] || '';
   h += '<div class="sec"><div class="lblrow"><div class="lbl">Day note</div>' +
-    '<button class="act" data-a="note" data-d="' + t + '">' + (note ? 'Edit' : 'Add') + '</button></div>' +
+    '<button class="act" data-a="note" data-d="' + c + '">' + (note ? 'Edit' : 'Add') + '</button></div>' +
     '<div class="card">' + (note ? '<div class="note">' + esc(note) + '</div>' :
       '<div class="empty">What broke today, and what you will do about it.</div>') + '</div></div>';
 
   h += '<div class="sec"><div class="acts">' +
     '<button class="btn" data-a="mock">Log a mock</button>' +
-    '<button class="btn ' + (dayComplete(t) ? '' : 'pri') + '" data-a="allblk" data-d="' + t + '">' +
-    (dayComplete(t) ? 'Uncheck day' : 'Check off day') + '</button></div></div>';
+    '<button class="btn ' + (dayComplete(c) ? '' : 'pri') + '" data-a="allblk" data-d="' + c + '">' +
+    (dayComplete(c) ? 'Uncheck day' : 'Check off day') + '</button></div></div>';
   return h;
 }
 
@@ -230,7 +250,7 @@ function viewPlan() {
   let cells = '';
   for (let d = 1; d <= 84; d++) {
     const f = dayPct(d), ph = phOf(d);
-    cells += '<div class="cell' + (d === t ? ' today' : '') + (isGate(d) ? ' gate' : '') + (f === 1 ? ' full' : '') +
+    cells += '<div class="cell' + (d === t ? ' today' : d === curDay() ? ' view' : '') + (isGate(d) ? ' gate' : '') + (f === 1 ? ' full' : '') +
       '" data-a="day" data-d="' + d + '"><i style="height:' + pct(f) + ';background:' + ph.hex + '"></i>' +
       '<span>' + d + '</span></div>';
   }
@@ -245,7 +265,7 @@ function viewPlan() {
     const days = [], first = (w - 1) * 7 + 1;
     let done = 0, total = 0;
     for (let d = first; d < first + 7; d++) { days.push(d); done += doneCount(d); total += blocksOf(d).length; }
-    const open = openWeeks[w] || (t && weekOf(t) === w && openWeeks[w] !== false);
+    const open = openWeeks[w] || (weekOf(curDay()) === w && openWeeks[w] !== false);
     h += '<div class="wk' + (open ? ' open' : '') + '">' +
       '<button class="wk-h" data-a="wk" data-w="' + w + '"><span class="wk-n">W' + w + '</span>' +
       '<span class="wk-t">' + esc(WEEKS[w - 1]) + '</span>' +
@@ -373,19 +393,6 @@ function sheet(html) { $('#sheet').innerHTML = html; $('#ov').hidden = false; }
 function closeSheet() { $('#ov').hidden = true; $('#sheet').innerHTML = ''; }
 const sheetOpen = () => !$('#ov').hidden;
 
-function daySheet(d) {
-  const day = D[d], ph = phOf(d);
-  sheet('<h3 class="disp">Day ' + d + ' — ' + esc(day.t) + '</h3>' +
-    '<div class="hint">Phase ' + ph.n + ' · week ' + weekOf(d) + ' · ' + minutesOf(d) + ' minutes' +
-    (S.start ? ' · ' + fmt(dateOf(d)) : '') + '</div>' +
-    '<div class="card blocks" style="margin-bottom:14px">' + blockRows(d) + '</div>' +
-    (day.p.length ? '<div class="lbl">Problems</div><div class="card" style="margin-bottom:14px">' +
-      day.p.map(n => probRow(n, day.t, true, false)).join('') + '</div>' : '') +
-    (S.notes[d] ? '<div class="lbl">Note</div><div class="card" style="margin-bottom:14px"><div class="note">' + esc(S.notes[d]) + '</div></div>' : '') +
-    '<div class="acts"><button class="btn" data-a="note" data-d="' + d + '">Note</button>' +
-    '<button class="btn pri" data-a="close">Done</button></div>');
-}
-
 function probSheet(name) {
   const p = S.probs[name];
   const t = today() || 1;
@@ -452,7 +459,8 @@ function startSheet() {
 
 function jumpSheet() {
   sheet('<h3 class="disp">Jump to a day</h3>' +
-    '<div class="hint">Read ahead, or catch up on one you skipped. The TODAY tab always follows the calendar.</div>' +
+    '<div class="hint">Read ahead, or go back and finish one you skipped. Whatever you check off ' +
+    'or rate lands on that day, not on today.</div>' +
     '<div class="fld"><label>Day 1–84</label><input type="text" inputmode="numeric" id="jday" placeholder="' + (today() || 1) + '"></div>' +
     '<div class="acts"><button class="btn" data-a="close">Cancel</button>' +
     '<button class="btn pri" data-a="dojump">Open</button></div>');
@@ -497,7 +505,6 @@ const ACT = {
     const d = +el.dataset.d, i = +el.dataset.i, k = d + ':' + i;
     if (S.blocks[k]) delete S.blocks[k]; else S.blocks[k] = 1;
     save();
-    if (sheetOpen()) daySheet(d);
     render();
   },
   allblk(el) {
@@ -509,12 +516,15 @@ const ACT = {
   },
   score(el) {
     rate(el.dataset.p, +el.dataset.s, el.dataset.pat);
-    if (sheetOpen()) { const s = $('#sheet'); if (s.querySelector('#pnote')) probSheet(el.dataset.p); else if (s.querySelector('.blocks')) daySheet(currentDay); }
+    if (sheetOpen() && $('#sheet').querySelector('#pnote')) probSheet(el.dataset.p);
     render();
   },
   prob(el) { probSheet(el.dataset.p); },
   ext(el) { window.open('https://leetcode.com/problemset/?search=' + encodeURIComponent(el.dataset.p), '_blank'); },
-  day(el) { currentDay = +el.dataset.d; daySheet(currentDay); },
+  day(el) { goDay(+el.dataset.d); tab = 'today'; render(); },
+  prev() { goDay(curDay() - 1); render(); },
+  next() { goDay(curDay() + 1); render(); },
+  gotoday() { viewDay = 0; render(); },
   wk(el) { const w = el.dataset.w; openWeeks[w] = !el.closest('.wk').classList.contains('open'); render(); },
   filter(el) { filter = el.dataset.f; render(); },
 
@@ -561,15 +571,15 @@ const ACT = {
   savestart() {
     const v = $('#sdate').value;
     if (!v) { toast('Pick a date'); return; }
-    S.start = v; save(); closeSheet(); render();
+    S.start = v; save(); viewDay = 0; closeSheet(); render();
   },
-  starttoday() { S.start = iso(new Date()); save(); closeSheet(); render(); },
+  starttoday() { S.start = iso(new Date()); save(); viewDay = 0; closeSheet(); render(); },
 
   jump() { jumpSheet(); },
   dojump() {
     const n = parseInt($('#jday').value, 10);
     if (!n || n < 1 || n > 84) { toast('1 to 84'); return; }
-    currentDay = n; daySheet(n);
+    goDay(n); closeSheet(); tab = 'today'; render();
   },
 
   export() { exportSheet(); },
@@ -584,7 +594,7 @@ const ACT = {
       const o = JSON.parse($('#imp').value);
       if (!o || typeof o !== 'object' || !('blocks' in o)) throw 0;
       S = Object.assign(blank(), o);
-      save(); closeSheet(); render(); toast('Restored');
+      save(); viewDay = 0; closeSheet(); render(); toast('Restored');
     } catch (e) { toast('That is not a backup'); }
   },
   reset() {
@@ -594,9 +604,8 @@ const ACT = {
       '<div class="acts"><button class="btn pri" data-a="close">Keep it</button>' +
       '<button class="btn" data-a="reset2">Erase</button></div>');
   },
-  reset2() { S = blank(); save(); closeSheet(); tab = 'today'; render(); toast('Erased'); }
+  reset2() { S = blank(); save(); closeSheet(); viewDay = 0; tab = 'today'; render(); toast('Erased'); }
 };
-let currentDay = 1;
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-a]');
@@ -610,6 +619,7 @@ $('#ov').addEventListener('click', e => { if (e.target.id === 'ov') closeSheet()
 window.appBack = function () {
   if (sheetOpen()) { closeSheet(); return true; }
   if (tab !== 'today') { tab = 'today'; render(); return true; }
+  if (viewDay) { viewDay = 0; render(); return true; }   // back out of another day first
   return false;
 };
 
