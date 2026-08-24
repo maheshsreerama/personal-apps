@@ -1,0 +1,99 @@
+name: Build & Release Interview Prep 84 APK
+
+on:
+  push:
+    branches: ['claude/**']
+    tags: ['prep-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: interview-prep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build release APK
+        run: gradle assembleRelease
+
+      - name: Name APK
+        id: apk
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            TAG="prep-v${{ github.event.inputs.version }}"
+          else
+            # Branch build: take the version straight from the app, single source of truth.
+            TAG="prep-v$(sed -nE "s/.*versionName '(.*)'.*/\1/p" app/build.gradle)"
+          fi
+          NAME="interview-prep-84-${TAG#prep-v}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "${NAME}"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: interview-prep-apk
+          path: interview-prep/${{ steps.apk.outputs.name }}
+
+      # Publishes on a `prep-v*` tag, on a manual run, or when a commit message carries
+      # `[release]` — the last one exists because tags cannot always be pushed directly, and
+      # this job's `contents: write` token can create the tag itself.
+      - name: Create GitHub Release
+        if: >-
+          startsWith(github.ref, 'refs/tags/')
+          || github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[release]')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Interview Prep 84 ${{ steps.apk.outputs.tag }}
+          files: interview-prep/${{ steps.apk.outputs.name }}
+          body: |
+            ## 📓 Interview Prep 84 (Android)
+
+            An 84-day senior-backend interview plan — DSA, Java internals, machine coding, HLD and
+            behavioural — with the tracker that keeps you honest about it.
+
+            **Install:** download the `.apk` below on your Android phone (8.0+), open it, and allow
+            "install from unknown sources" when prompted.
+
+            ### What it does
+            - **Today** — the day's blocks with their minutes, its problems, and every revision that
+              has come due
+            - **Plan** — all 84 days as one grid, phase-coloured and filling as you work, plus the
+              twelve weeks
+            - **Log** — every problem you have rated, on a spaced-repetition ladder: clean pushes the
+              next look out to 1, 2, 4, 8, 16, 30 days; a hint holds it; a miss brings it back tomorrow
+            - **Stats** — days, streak, hours, clean-solve rate, phase progress, your weakest patterns
+              first, and every mock you have scored against its rubric
+
+            ### Under the hood
+            - 100% offline — no permissions, no network, no accounts. Everything is on the device.
+            - Back up and restore through the share sheet, as plain text
+            - Fonts bundled, so it renders identically with the radio off

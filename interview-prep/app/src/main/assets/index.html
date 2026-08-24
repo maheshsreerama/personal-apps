@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Interview Prep 84</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <div class="daynum mono" id="hDay">—</div>
+    <div class="hdr-meta">
+      <div class="hdr-t" id="hTitle">Loading…</div>
+      <div class="hdr-s" id="hSub"></div>
+    </div>
+    <div class="ringwrap">
+      <svg width="38" height="38"><circle cx="19" cy="19" r="15.5" fill="none" stroke="#272D38" stroke-width="3.5"/><circle id="hRing" cx="19" cy="19" r="15.5" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="97.4" stroke-dashoffset="97.4"/></svg>
+      <div class="ringtx" id="hPct">0%</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="view"></main>
+
+<nav class="nav"><div class="nav-in">
+  <button data-a="tab" data-tab="today" class="on">TODAY</button>
+  <button data-a="tab" data-tab="plan">PLAN</button>
+  <button data-a="tab" data-tab="log">LOG</button>
+  <button data-a="tab" data-tab="stats">STATS</button>
+</div></nav>
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="plan.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
