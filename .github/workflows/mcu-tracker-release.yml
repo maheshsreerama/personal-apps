@@ -1,0 +1,96 @@
+name: Build MCU Roadmap APK
+
+on:
+  push:
+    branches: ['claude/**', 'main']
+    paths:
+      - 'mcu-tracker/**'
+      - '.github/workflows/mcu-tracker-release.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.0)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mcu-tracker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build release APK
+        working-directory: mcu-tracker
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Stage the APK
+        id: apk
+        run: |
+          VERSION="$(sed -nE 's/.*versionName = "(.*)".*/\1/p' mcu-tracker/app/build.gradle.kts)"
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          cp mcu-tracker/app/build/outputs/apk/release/app-release.apk mcu-tracker/mcu-roadmap.apk
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=mcu-v${VERSION}" >> "$GITHUB_OUTPUT"
+          ls -lh mcu-tracker/mcu-roadmap.apk
+
+      # The APK is committed into the repo so it can be downloaded straight from the
+      # file tree. `[skip ci]` keeps this push from re-triggering the workflow.
+      - name: Commit the APK back to the branch
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f mcu-tracker/mcu-roadmap.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged, nothing to commit."
+          else
+            git commit -m "Build MCU Roadmap ${{ steps.apk.outputs.version }} APK [skip ci]"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcu-roadmap-apk
+          path: mcu-tracker/mcu-roadmap.apk
+
+      - name: Create GitHub Release
+        if: >-
+          github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[release]')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: MCU Roadmap ${{ steps.apk.outputs.tag }}
+          files: mcu-tracker/mcu-roadmap.apk
+          body: |
+            ## MCU Roadmap ${{ steps.apk.outputs.version }}
+
+            A chronological Marvel Cinematic Universe watch-list tracker for Android —
+            46 titles across 5 phases, with an Up Next card, progress rings, per-phase
+            breakdowns and a finish-date forecast.
+
+            **Install:** download the `.apk` below on an Android phone (8.0+), open it and
+            allow "install from unknown sources" when prompted.

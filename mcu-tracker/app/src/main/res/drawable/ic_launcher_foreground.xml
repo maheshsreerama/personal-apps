@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ring: the roadmap you are working your way around. -->
+    <path
+        android:fillColor="#E62429"
+        android:fillType="evenOdd"
+        android:pathData="M54,83.5 A29.5,29.5 0 1,1 54,24.5 A29.5,29.5 0 1,1 54,83.5 Z M54,76.5 A22.5,22.5 0 1,0 54,31.5 A22.5,22.5 0 1,0 54,76.5 Z" />
+
+    <!-- Play head: the next title queued up. -->
+    <path
+        android:fillColor="#FFF6F6F8"
+        android:pathData="M47.5,41.5 L69,54 L47.5,66.5 Z" />
+</vector>
