@@ -83,7 +83,7 @@ Prefer the two-argument forms over string concatenation: they insert `File.separ
 ## Diagram
 ```mermaid
 flowchart TD
-    A["new File(&quot;example.txt&quot;)"] --> B["path resolved against user.dir"]
+    A["new File(example.txt)"] --> B["path resolved against user.dir"]
     B --> C{"exists()?"}
     C -->|yes| D["print: File already exists."]
     C -->|no| E{"createNewFile()"}

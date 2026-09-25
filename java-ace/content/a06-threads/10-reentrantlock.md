@@ -389,7 +389,7 @@ With the fair lock, the thread that just unlocked must queue behind the waiting 
 
 **How to run it.** With JDK 21, `java ReentrantLockExample.java` fails with *"can't find main(String[]) method in class: Multithreading.ConcurrencyUtilities.SharedCounter"*. The single-file launcher runs the **first** class in the file, and here that is `SharedCounter`. Compile with `javac -d out Multithreading/ConcurrencyUtilities/ReentrantLockExample.java` and run `java -cp out Multithreading.ConcurrencyUtilities.ReentrantLockExample`, or use the IDE.
 
-> [!WARNING] **2000 does not prove the lock works.** I removed the lock from this exact program and ran it 20 times: it printed `Counter value: 2000` **19 times** and `1998` once. With only 1000 increments, the first thread often finishes before the second one even starts. To *see* the race, use far more iterations. With 1,000,000 per thread and no lock, a real run printed:
+> [!WARNING] **2000 does not prove the lock works.** With the lock removed from this exact program, 20 test runs printed `Counter value: 2000` **19 times** and `1998` once. With only 1000 increments, the first thread often finishes before the second one even starts. To *see* the race, use far more iterations. With 1,000,000 per thread and no lock, a real run printed:
 > ```output
 > Counter value: 1975282 (expected 2000000)
 > ```

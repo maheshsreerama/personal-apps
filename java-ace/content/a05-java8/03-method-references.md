@@ -306,7 +306,7 @@ They use `invokedynamic` with `LambdaMetafactory.metafactory`, like lambdas. Nor
 **Follow-up:** *What does the JVM generate at runtime?* — The same as for lambdas: a hidden class implementing the functional interface, created on first execution of the call site.
 
 ### [Advanced] Can a method reference be used when the functional interface's method throws checked exceptions or has different primitive/boxed types?
-Yes, within the normal method-invocation conversions. Boxing and unboxing are applied: `Function<String,Integer> parse = Integer::parseInt` (returns `int`, boxed to `Integer`), and widening works. Return values can be discarded for `void` targets. Checked exceptions thrown by the referenced method must be declared by the interface method; otherwise javac reports "incompatible thrown types". `Callable<String> c = Files::readString`-style references work only because `Callable.call()` declares `throws Exception`.
+Yes, within the normal method-invocation conversions. Boxing and unboxing are applied: `Function<String,Integer> parse = Integer::parseInt` (returns `int`, boxed to `Integer`), and widening works. Return values can be discarded for `void` targets. Checked exceptions thrown by the referenced method must be declared by the interface method; otherwise javac reports "incompatible thrown types". So `Callable<String> c = this::loadConfig;` (where `String loadConfig() throws IOException`) compiles only because `Callable.call()` declares `throws Exception`; the same reference as a `Supplier<String>` does not.
 
 **Follow-up:** *And varargs methods?* — Allowed: `Function<String, List<String>> f = Arrays::asList` passes the single argument as a one-element varargs array.
 
