@@ -49,7 +49,8 @@ function highlight(code, lang) {
 function codeBlock(code, lang, numbered) {
   code = code.replace(/\n+$/, '');
   const gutter = numbered ? `<pre class="gutter" aria-hidden="true">${code.split('\n').map((_, i) => i + 1).join('\n')}</pre>` : '';
-  return `<div class="code${numbered ? ' numbered' : ''}">${gutter}<pre class="src"><code class="hljs lang-${esc(lang || 'text')}">${highlight(code, lang)}</code></pre><button class="copy" type="button" aria-label="Copy code">Copy</button></div>`;
+  return `<div class="code"><div class="code-bar"><span>${esc(lang || 'text')}</span><button class="copy" type="button">Copy</button></div>
+    <div class="code-body">${gutter}<pre class="src"><code class="hljs lang-${esc(lang || 'text')}">${highlight(code, lang)}</code></pre></div></div>`;
 }
 
 const CALLOUTS = { TIP: '💡 Tip', WARNING: '⚠️ Watch out', ERRATA: '🐞 Errata — fix in the original', NOTE: '📝 Note', INTERVIEW: '🎤 Say this in the interview' };

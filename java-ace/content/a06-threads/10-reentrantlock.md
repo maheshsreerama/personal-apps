@@ -369,7 +369,7 @@ With the fair lock, the thread that just unlocked must queue behind the waiting 
 **Header**
 - `package Multithreading.ConcurrencyUtilities;` puts every class of this file in that package. By convention package names are lowercase (`multithreading.concurrencyutilities`); the course uses capitalised folder names.
 - `// ReentrantLockExample.java` is just the file name as a comment.
-- `import java.util.concurrent.locks.ReentrantLock;` — the lock classes live in the `locks` sub-package (`Lock`, `ReentrantLock`, `ReadWriteLock`, `Condition`, `StampedLock`, `LockSupport`, `AbstractQueuedSynchronizer` is one level up in `java.util.concurrent.locks` too).
+- `import java.util.concurrent.locks.ReentrantLock;` — the lock classes live in the `locks` sub-package: `Lock`, `ReentrantLock`, `ReadWriteLock`, `ReentrantReadWriteLock`, `StampedLock`, `Condition`, `LockSupport` and `AbstractQueuedSynchronizer`.
 
 **`class SharedCounter`: the shared resource**
 - `private int count = 0;` — the shared, mutable state. `count++` is really three steps (read, add 1, write back), so two threads can interleave and lose an update. It is not `volatile` and doesn't need to be, because every write happens under the lock.
@@ -432,6 +432,7 @@ With the fair lock, the thread that just unlocked must queue behind the waiting 
   interrupted before getting the lock
   Exception in thread "Thread-0" java.lang.IllegalMonitorStateException
   ```
+  (Stack trace trimmed. It points at `ReentrantLock.unlock`.)
 - **Unlocking more times than you locked**, or unlocking from a different thread, throws `IllegalMonitorStateException`. A lock has an **owner** (a `Semaphore` does not).
 - **Calling `await()`/`signal()` without holding the lock** throws `IllegalMonitorStateException`, the same rule as `wait`/`notify`.
 - **`if` instead of `while` around `await()`.** Spurious wakeups, and other threads that change the state before you re-acquire the lock, mean you must re-check the condition.

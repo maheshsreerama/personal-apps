@@ -102,7 +102,7 @@ How `+` is compiled:
 > [!WARNING] `+=` inside a loop copies the whole string every iteration: O(n²). Building a 100,000-character string with `s += "x"` took about 3.8 seconds on the machine used for this lesson; the same loop with `StringBuilder.append` took under 1 ms.
 
 ### `length()`, `charAt()`, `substring()`
-- `length()` — the number of **UTF-16 code units** (`char`s), not "letters". A character outside the Basic Multilingual Plane (most emoji) is stored as a **surrogate pair** of two `char`s, so `"Hi😀".length()` is **4**. Use `codePointCount(0, s.length())` to count real characters (3).
+- `length()` — the number of **UTF-16 code units** (`char`s), not "letters". A character outside the Basic Multilingual Plane (most emoji) is stored as a **surrogate pair** of two `char`s, so `"Hi\uD83D\uDE00"` ("Hi" plus the grinning-face emoji U+1F600) has `length()` **4**. Use `codePointCount(0, s.length())` to count real characters (3).
 - `charAt(i)` — the `char` at index `i`, where `0 <= i < length()`. Anything else throws `StringIndexOutOfBoundsException` (a subclass of `IndexOutOfBoundsException`). It returns a primitive `char`, so `charAt(1) + 1` is arithmetic, not text.
 - `substring(begin, end)` — characters from `begin` (**inclusive**) to `end` (**exclusive**). The result length is always `end - begin`. `end` may equal `length()`; `begin == end` gives `""`.
 - `substring(begin)` — from `begin` to the end.
@@ -243,7 +243,7 @@ public class IndexDemo {
             System.out.println(e.getMessage());
         }
 
-        String smile = "Hi😀";           // "Hi" + one emoji (a surrogate pair)
+        String smile = "Hi\uD83D\uDE00";           // "Hi" + one emoji (a surrogate pair)
         System.out.println(smile.length());          // UTF-16 code units
         System.out.println(smile.codePointCount(0, smile.length()));  // real characters
     }
@@ -341,7 +341,7 @@ Since **Java 7** the pool (the JVM's `StringTable`) lives in the **regular heap*
 
 **Follow-up:** *Should I call `intern()` to save memory?* — Rarely. It trades CPU (a hash-table lookup) for memory and only helps with many duplicate long-lived strings. G1's `-XX:+UseStringDeduplication` deduplicates the underlying arrays automatically without changing identity.
 
-### [Intermediate] What does `"Hi😀".length()` return, and why?
+### [Intermediate] What does `"Hi\uD83D\uDE00".length()` return, and why?
 **4**. `length()` returns the number of UTF-16 code units. `H` and `i` take one each; the emoji (U+1F600) is outside the Basic Multilingual Plane and is stored as a **surrogate pair** of two `char`s. To count user-visible code points use `s.codePointCount(0, s.length())` → 3, and iterate with `s.codePoints()` instead of `charAt` when text may contain such characters.
 
 **Follow-up:** *Does Compact Strings change `length()`?* — No. Compact Strings changes only the internal storage (1 byte per char for Latin-1); the API still works in UTF-16 units.
