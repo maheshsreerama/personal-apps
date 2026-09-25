@@ -201,7 +201,7 @@ System.out.println(Stream.of(1, 3, 5).collect(Collectors.groupingBy(n -> n % 2 =
 - **Reading `true`/`false` the wrong way round.** The key is the predicate's result. With `partitioningBy(String::isEmpty)`, `true` means "empty". Name the variable after the predicate (`byIsEmpty`) and use `get(true)`/`get(false)` deliberately.
 - **Expecting `groupingBy`-like missing keys.** `partitioningBy` always has both keys, so `map.get(true)` is never `null` — but it may be an empty list or a zero count.
 - **Expecting `groupingBy(p::test)` to behave like `partitioningBy`.** It does not create a key that no element produced, so `get(true)` can return `null`.
-- **Trying to modify the map's structure.** `put`, `remove`, `clear`, `putIfAbsent`, `merge` on the result throw `UnsupportedOperationException`. Copy it first (`new HashMap<>(result)`) if you need a mutable map.
+- **Trying to modify the map's structure.** `put`, `remove`, `clear` — and default methods such as `merge` that end up calling `put` — throw `UnsupportedOperationException` on the result. Copy it first (`new HashMap<>(result)`) if you need a mutable map.
 - **No map factory.** You cannot request a `TreeMap` or `EnumMap`; there is no such overload.
 - **A predicate with side effects or randomness** — it is called exactly once per element, but in a parallel stream in an unpredictable order and thread.
 - **Complex multi-way splits with nested partitions** (`partitioningBy(p1, partitioningBy(p2, partitioningBy(p3)))`) become unreadable. For more than two categories, use `groupingBy` with an enum or a computed category key.
