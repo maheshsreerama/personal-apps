@@ -1,0 +1,2 @@
+Singleton instance created
+Are both instances the same? true

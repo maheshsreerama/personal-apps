@@ -1,0 +1,3 @@
+Static variable: 10
+Inside static method.
+Instance variable: 5

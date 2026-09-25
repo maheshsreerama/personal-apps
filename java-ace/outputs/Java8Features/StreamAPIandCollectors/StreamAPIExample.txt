@@ -1,0 +1,2 @@
+Filtered List: [abc, bc, efg, abcd, jkl]
+Lengths of non-empty strings: [3, 2, 3, 4, 3]

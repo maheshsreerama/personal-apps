@@ -1,0 +1,6 @@
+Thread-2 acquired semaphore.
+Thread-1 acquired semaphore.
+Thread-1 released semaphore.
+Thread-2 released semaphore.
+Thread-3 acquired semaphore.
+Thread-3 released semaphore.

@@ -1,0 +1,5 @@
+Iterating through the set:
+Cat
+Elephant
+Dog
+Animals after removal: [Elephant, Dog]

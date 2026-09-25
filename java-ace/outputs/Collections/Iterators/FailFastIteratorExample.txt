@@ -1,0 +1,7 @@
+Traversing the list:
+Element: 1
+Element: 3
+Element: 5
+Exception in thread "main" java.util.NoSuchElementException
+	at java.base/java.util.ArrayList$Itr.next(ArrayList.java:1052)
+	at Collections.Iterators.FailFastIteratorExample.main(FailFastIteratorExample.java:25)

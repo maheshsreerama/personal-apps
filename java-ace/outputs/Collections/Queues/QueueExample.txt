@@ -1,0 +1,7 @@
+Queue: [A, B, C]
+Head of queue: A
+Queue after removing an element: [B, C]
+Polled element: B
+Queue after polling an element: [C]
+Iterating through the queue:
+C

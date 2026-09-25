@@ -1,0 +1,4 @@
+Default constructor called.
+var1: 0, var2: 0
+Parameterized constructor called.
+var1: 10, var2: 20

@@ -1,0 +1,12 @@
+Traversing the list in forward direction:
+Element: 1
+Element: 2
+Element: 3
+Element: 4
+Element: 5
+Traversing the list in backward direction:
+Element: 5
+Element: 4
+Element: 3
+Element: 2
+Element: 1

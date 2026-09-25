@@ -1,0 +1,4 @@
+HDD: 500 GB
+RAM: 8 GB
+Graphics Card Enabled: true
+Bluetooth Enabled: true

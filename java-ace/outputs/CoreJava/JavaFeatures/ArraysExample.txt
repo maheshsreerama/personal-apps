@@ -1,0 +1,5 @@
+Array: [5, 3, 8, 2, 9]
+Sorted array: [2, 3, 5, 8, 9]
+Index of 8: 3
+Filled array: [7, 7, 7, 7, 7]
+Copied array: [2, 3, 5, 8, 9]

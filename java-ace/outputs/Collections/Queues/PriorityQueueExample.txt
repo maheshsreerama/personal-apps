@@ -1,0 +1,6 @@
+PriorityQueue: [5, 20, 10]
+Head of queue: 5
+PriorityQueue after polling: [10, 20]
+Iterating through the priority queue:
+10
+20

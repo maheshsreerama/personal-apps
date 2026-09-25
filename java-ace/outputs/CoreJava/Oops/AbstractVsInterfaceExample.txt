@@ -1,0 +1,5 @@
+Dog barks.
+Buddy is sleeping.
+Dog is playing.
+Being friendly.
+Showing affection.

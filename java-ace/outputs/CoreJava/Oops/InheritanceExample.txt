@@ -1,0 +1,2 @@
+This animal eats food.
+The dog barks.

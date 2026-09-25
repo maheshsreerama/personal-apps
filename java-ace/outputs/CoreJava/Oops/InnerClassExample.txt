@@ -1,0 +1,2 @@
+Inner class accessing: Outer field
+Static inner class method.

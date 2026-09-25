@@ -1,0 +1,1 @@
+Count of non-empty strings: 5

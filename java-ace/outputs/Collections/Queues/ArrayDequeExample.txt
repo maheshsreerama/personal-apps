@@ -1,0 +1,6 @@
+ArrayDeque: [B, A, C]
+First element: B
+Last element: C
+ArrayDeque after removals: [A]
+Iterating through the array deque:
+A

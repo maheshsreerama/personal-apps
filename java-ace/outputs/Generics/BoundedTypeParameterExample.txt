@@ -1,0 +1,6 @@
+Integer Box content: 123
+Integer Box content as double: 123.0
+Double Box content: 45.67
+Double Box content as double: 45.67
+Float Box content: 8.9
+Float Box content as double: 8.899999618530273

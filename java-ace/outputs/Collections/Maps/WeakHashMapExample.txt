@@ -1,0 +1,3 @@
+WeakHashMap: {Banana=2, Apple=1}
+Value for key 'Apple': 1
+WeakHashMap after GC: {}

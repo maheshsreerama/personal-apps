@@ -1,0 +1,9 @@
+Current date: 2026-09-24
+Current time: 07:14:32.113619833
+Current date and time: 2026-09-24T07:14:32.113872989
+Formatted current date and time: 24-09-2026 07:14:32
+Parsed date: 2024-06-25
+Current date and time in New York: 2026-09-24T03:14:32.122233932-04:00[America/New_York]
+Period between 2020-01-01 and 2024-06-25: 4 years, 5 months, 24 days
+Duration between 09:30 and 17:45: 8 hours, 15 minutes
+Current date and time in UTC: 2026-09-24T07:14:32.148973161Z

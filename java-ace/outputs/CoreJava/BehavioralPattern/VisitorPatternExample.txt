@@ -1,0 +1,4 @@
+Displaying Mouse.
+Displaying Keyboard.
+Displaying Monitor.
+Displaying Computer.

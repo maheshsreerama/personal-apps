@@ -1,0 +1,2 @@
+The string is: Hello, world!
+Overridden default method in MyClass.

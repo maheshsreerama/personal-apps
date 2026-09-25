@@ -1,0 +1,25 @@
+Creating circle of color : White
+Circle: Draw() [Color : White, x : 64, y :72, radius :100
+Creating circle of color : Green
+Circle: Draw() [Color : Green, x : 35, y :13, radius :100
+Circle: Draw() [Color : White, x : 79, y :77, radius :100
+Creating circle of color : Red
+Circle: Draw() [Color : Red, x : 82, y :75, radius :100
+Creating circle of color : Black
+Circle: Draw() [Color : Black, x : 56, y :98, radius :100
+Circle: Draw() [Color : Black, x : 71, y :95, radius :100
+Circle: Draw() [Color : White, x : 24, y :2, radius :100
+Circle: Draw() [Color : Green, x : 37, y :91, radius :100
+Circle: Draw() [Color : Green, x : 64, y :61, radius :100
+Circle: Draw() [Color : White, x : 76, y :29, radius :100
+Circle: Draw() [Color : White, x : 96, y :31, radius :100
+Circle: Draw() [Color : White, x : 12, y :11, radius :100
+Creating circle of color : Blue
+Circle: Draw() [Color : Blue, x : 6, y :75, radius :100
+Circle: Draw() [Color : Red, x : 3, y :83, radius :100
+Circle: Draw() [Color : White, x : 51, y :19, radius :100
+Circle: Draw() [Color : Red, x : 12, y :4, radius :100
+Circle: Draw() [Color : Green, x : 71, y :20, radius :100
+Circle: Draw() [Color : White, x : 69, y :10, radius :100
+Circle: Draw() [Color : Green, x : 89, y :43, radius :100
+Circle: Draw() [Color : Blue, x : 29, y :77, radius :100

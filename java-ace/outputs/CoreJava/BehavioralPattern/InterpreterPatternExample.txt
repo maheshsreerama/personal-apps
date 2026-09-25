@@ -1,0 +1,2 @@
+John is a married male? true
+John is a single male? true

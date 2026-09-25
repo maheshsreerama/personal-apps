@@ -1,0 +1,2 @@
+Integer Box content: 123
+String Box content: Hello, Generics

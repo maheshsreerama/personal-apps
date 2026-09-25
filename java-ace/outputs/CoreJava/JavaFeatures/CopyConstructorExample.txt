@@ -1,0 +1,4 @@
+Parameterized constructor called.
+Copy constructor called.
+var1: 30, var2: 40
+var1: 30, var2: 40

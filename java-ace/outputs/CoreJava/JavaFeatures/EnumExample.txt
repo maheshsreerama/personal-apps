@@ -1,0 +1,10 @@
+Today is: MONDAY
+Start of the work week.
+Days of the week:
+SUNDAY
+MONDAY
+TUESDAY
+WEDNESDAY
+THURSDAY
+FRIDAY
+SATURDAY

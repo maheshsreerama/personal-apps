@@ -1,0 +1,5 @@
+LinkedList elements: [Dog, Cat, Bird]
+First element: Dog
+Last element: Bird
+LinkedList after removing Cat: [Dog, Bird]
+Iterating over LinkedList: Dog Bird 

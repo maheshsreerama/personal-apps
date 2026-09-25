@@ -1,0 +1,7 @@
+IdentityHashMap: {1=One, 1=One}
+Value for key1: One
+Value for key2: One
+Iterating through the map:
+Key: 1, Value: One
+Key: 1, Value: One
+IdentityHashMap after removal: {1=One}

@@ -1,0 +1,3 @@
+John sends: Hello, everyone!
+Jane received: Hello, everyone!
+Jack received: Hello, everyone!

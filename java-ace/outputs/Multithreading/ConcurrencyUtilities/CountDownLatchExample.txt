@@ -1,0 +1,7 @@
+Worker-3 is working
+Worker-2 is working
+Worker-1 is working
+Worker-3 finished work
+Worker-1 finished work
+Worker-2 finished work
+All workers finished their tasks

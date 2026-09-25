@@ -1,0 +1,5 @@
+Filename: example.txt
+Parent directory: /home/user
+Root component: /
+Number of name elements in path: 3
+Absolute path: /home/user/example.txt

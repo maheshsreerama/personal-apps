@@ -1,0 +1,11 @@
+Words: [Apple, Banana, Cherry, Date]
+First word: Apple
+Last word: Date
+Lower than 'Banana': Apple
+Higher than 'Banana': Cherry
+Iterating through the set:
+Apple
+Banana
+Cherry
+Date
+Words after removal: [Apple, Banana, Cherry]

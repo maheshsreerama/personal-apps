@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.maheshsreerama.javaace'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.maheshsreerama.javaace'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    signingConfigs {
+        // Personal sideloaded app in a private repo: a committed key keeps every release installable over the last.
+        release {
+            storeFile file('java-ace.keystore')
+            storePassword 'javaace'
+            keyAlias 'javaace'
+            keyPassword 'javaace'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

@@ -1,0 +1,7 @@
+Non-Empty Optional: Optional[Hello, World!]
+Value: Hello, World!
+Nullable Optional: Optional.empty
+Empty Optional: Optional.empty
+Nullable Optional with Default Value: Default Value
+Empty Optional with Default Value: Default Value from Supplier
+Exception: Value is not present

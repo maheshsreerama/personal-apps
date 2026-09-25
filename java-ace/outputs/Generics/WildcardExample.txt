@@ -1,0 +1,4 @@
+Integer List: 1 2 3 
+Double List: 1.1 2.2 3.3 
+Sum of Integer List: 6.0
+Sum of Double List: 6.6

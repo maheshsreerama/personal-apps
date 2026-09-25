@@ -1,0 +1,6 @@
+File created: example.txt
+File name: example.txt
+Absolute path: /home/you/project/example.txt
+Writable: true
+Readable: true
+File size in bytes: 0

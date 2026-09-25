@@ -1,0 +1,4 @@
+ArrayList elements: [Apple, Banana, Cherry]
+Element at index 1: Banana
+ArrayList after removing Banana: [Apple, Cherry]
+Iterating over ArrayList: Apple Cherry 

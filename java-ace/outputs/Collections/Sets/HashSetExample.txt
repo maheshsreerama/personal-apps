@@ -1,0 +1,7 @@
+Countries: [Canada, USA, Mexico]
+Canada is in the set.
+Iterating through the set:
+Canada
+USA
+Mexico
+Countries after removal: [Canada, USA]

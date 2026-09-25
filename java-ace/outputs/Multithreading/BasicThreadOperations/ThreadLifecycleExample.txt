@@ -1,0 +1,4 @@
+Thread is running
+Thread state after start: RUNNABLE
+Thread is terminating
+Thread state after completion: TERMINATED

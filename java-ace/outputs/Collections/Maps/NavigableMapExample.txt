@@ -1,0 +1,11 @@
+NavigableMap: {Apple=1, Banana=2, Cherry=3, Date=4}
+First entry: Apple=1
+Last entry: Date=4
+Lower than 'Banana': Apple=1
+Higher than 'Banana': Cherry=3
+Iterating through the map:
+Key: Apple, Value: 1
+Key: Banana, Value: 2
+Key: Cherry, Value: 3
+Key: Date, Value: 4
+NavigableMap after removal: {Apple=1, Banana=2, Cherry=3}

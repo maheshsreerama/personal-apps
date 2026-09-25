@@ -1,0 +1,7 @@
+Task-1 is waiting at the barrier
+Task-3 is waiting at the barrier
+Task-2 is waiting at the barrier
+All threads reached the barrier, let's proceed
+Task-2 crossed the barrier
+Task-1 crossed the barrier
+Task-3 crossed the barrier

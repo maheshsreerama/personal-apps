@@ -1,0 +1,5 @@
+Iterating through the map:
+Key: One, Value: 1
+Key: Two, Value: 2
+Key: Three, Value: 3
+Map after removal: {One=1, Three=3}

@@ -1,0 +1,6 @@
+Traversing the set:
+Element: Apple
+Element: Cherry
+Element: Date
+Element: Elderberry
+Element: Banana

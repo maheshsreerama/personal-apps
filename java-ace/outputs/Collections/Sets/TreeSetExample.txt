@@ -1,0 +1,8 @@
+Numbers: [5, 10, 20]
+First number: 5
+Last number: 20
+Iterating through the set:
+5
+10
+20
+Numbers after removal: [5, 20]

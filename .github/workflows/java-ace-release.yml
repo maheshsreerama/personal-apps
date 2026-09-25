@@ -1,0 +1,60 @@
+name: Java Ace APK
+
+on:
+  push:
+    branches: ['claude/java-learning-android-app-nn2adg', 'main']
+    paths: ['java-ace/**', '.github/workflows/java-ace-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: java-ace-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-ace
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: java-ace/web/package-lock.json
+
+      - name: Build the offline web app into the APK assets
+        working-directory: java-ace/web
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci && npm run build
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build the signed APK
+        working-directory: java-ace/android
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Publish to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(sed -n "s/.*versionName '\(.*\)'.*/\1/p" android/app/build.gradle)
+          TAG="java-ace-v$VERSION"
+          APK="JavaAce-$VERSION.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK"
+          case "$VERSION" in 0.*) PRE=--prerelease ;; *) PRE= ;; esac
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+            gh release edit "$TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" "$APK" $PRE --target "$GITHUB_SHA" --title "Java Ace $VERSION" --notes-file release-notes.md
+          fi

@@ -1,0 +1,11 @@
+Value associated with key 'Two': 2
+
+Iterating over keys using Enumeration:
+Key: One, Value: 1
+Key: Four, Value: 4
+Key: Two, Value: 2
+
+Iterating over entries using Entry Set and Iterator:
+Key: One, Value: 1
+Key: Four, Value: 4
+Key: Two, Value: 2

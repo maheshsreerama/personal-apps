@@ -1,0 +1,10 @@
+Forward iteration:
+New York
+Los Angeles
+Chicago
+Backward iteration:
+Chicago
+Los Angeles
+New York
+Modifying elements:
+Cities after modification: [New York, Los Angeles, San Francisco]

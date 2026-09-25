@@ -1,0 +1,10 @@
+Circle with normal border
+Shape: Circle
+
+Circle with red border
+Shape: Circle
+Border Color: Red
+
+Rectangle with red border
+Shape: Rectangle
+Border Color: Red

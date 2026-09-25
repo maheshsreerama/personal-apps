@@ -1,0 +1,5 @@
+Appended string: Hello World
+String after insertion: Hello Beautiful World
+String after replacement: Hello Amazing World
+String after deletion: Hello  World
+Reversed string: dlroW  olleH

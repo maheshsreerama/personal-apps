@@ -1,0 +1,3 @@
+Circle::draw()
+Rectangle::draw()
+Square::draw()

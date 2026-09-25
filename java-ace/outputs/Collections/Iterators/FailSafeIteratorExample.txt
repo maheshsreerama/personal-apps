@@ -1,0 +1,11 @@
+Current Element: Element1
+Current Element: Element2
+Current Element: Element3
+
+Final list after modification:
+Element1
+Element2
+Element3
+NewElement
+NewElement
+NewElement

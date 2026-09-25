@@ -1,0 +1,4 @@
+First state change: 15
+Binary String: 1111
+Second state change: 10
+Binary String: 1010

@@ -1,0 +1,4 @@
+Concatenated string: Hello World
+Length of str3: 11
+Character at index 1 in str3: e
+Substring of str3 from index 6 to 11: World

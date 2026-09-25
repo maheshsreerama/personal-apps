@@ -1,0 +1,5 @@
+Integer wrapper: 5
+Primitive int: 10
+Parsed int: 123
+Integer MAX_VALUE: 2147483647
+Double MIN_VALUE: 4.9E-324

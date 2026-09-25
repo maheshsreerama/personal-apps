@@ -1,0 +1,6 @@
+Deque: [0, 1, 2]
+First element: 0
+Last element: 2
+Deque after removals: [1]
+Iterating through the deque:
+1

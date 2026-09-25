@@ -1,0 +1,7 @@
+web/node_modules/
+web/public/fonts/
+android/app/src/main/assets/www/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

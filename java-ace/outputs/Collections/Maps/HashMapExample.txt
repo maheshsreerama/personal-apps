@@ -1,0 +1,7 @@
+HashMap: {1=One, 2=Two, 3=Three}
+Value for key 2: Two
+Iterating through the map:
+Key: 1, Value: One
+Key: 2, Value: Two
+Key: 3, Value: Three
+HashMap after removal: {1=One, 2=Two}

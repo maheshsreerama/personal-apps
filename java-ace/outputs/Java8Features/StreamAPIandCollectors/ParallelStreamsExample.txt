@@ -1,0 +1,1 @@
+Filtered List (Parallel Stream): [abc, bc, efg, abcd, jkl]

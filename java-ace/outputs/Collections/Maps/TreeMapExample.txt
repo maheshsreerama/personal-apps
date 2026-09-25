@@ -1,0 +1,7 @@
+TreeMap: {Apple=1, Banana=2, Cherry=3}
+Value for key 'Banana': 2
+Iterating through the map:
+Key: Apple, Value: 1
+Key: Banana, Value: 2
+Key: Cherry, Value: 3
+TreeMap after removal: {Apple=1, Banana=2}

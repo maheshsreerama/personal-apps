@@ -1,0 +1,7 @@
+Uppercase: HELLO WORLD
+Lowercase: hello world
+Contains 'Hello': true
+Replaced 'l' with 'p': Heppo Worpd
+Split string:
+Hello
+World

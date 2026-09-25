@@ -1,0 +1,7 @@
+Stack: [10, 20, 30, 40]
+Top element is: 40
+Popped element: 40
+Popped element: 30
+Stack after popping elements: [10, 20]
+The stack is not empty.
+Element 10 found at position: 2
