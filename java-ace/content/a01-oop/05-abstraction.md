@@ -266,7 +266,7 @@ Template Method defines the skeleton of an algorithm in a base-class method and 
 ### [Advanced] Why is calling an abstract method from the abstract class's constructor dangerous?
 The abstract class's constructor runs before the subclass's field initialisers and constructor body. If it calls an abstract (or any overridable) method, dynamic dispatch runs the subclass implementation on a half-built object, which sees default values. With `Shape() { System.out.println("Area = " + area()); }` and `Square` having `double side = 2;`, `new Square()` prints `Area = 0.0`. Avoid calling overridable methods in constructors; use a factory method or an explicit `init()` step instead.
 
-**Follow-up:** *Does it help to make the field `final`?* — No; a `final` instance field initialised in the subclass is still unassigned (default value) at that moment. Only compile-time constants (`static final double SIDE = 2`) are inlined and would appear.
+**Follow-up:** *Does it help to make the field `final`?* — Only by accident. `final double side = 2;` is a *constant variable* (final + constant initializer), so the compiler inlines `2` and the call prints `Area = 4.0`. But a `final` field assigned in the constructor (`Sq3(double s) { side = s; }`) or a non-constant type (`final Double side = 2.0;`) is still unset at that moment and shows `0.0` / `null`. Do not rely on it.
 
 ### [Advanced] Can you restrict which classes implement an abstraction?
 Yes. Options: make the abstract class's constructor package-private so only same-package classes can extend it; since Java 17 use `sealed abstract class Shape permits Circle, Square` so the compiler knows the complete set of subclasses (which also enables exhaustive `switch` pattern matching in Java 21). Package-private abstract methods also restrict implementations to the package, as this lesson's example shows — often by accident.
@@ -348,7 +348,7 @@ class HalfATM extends ATM {
 - [x] Compile error: the package-private abstract methods cannot be overridden from another package
 - [ ] Compiles, but throws `AbstractMethodError` at runtime
 - [ ] Compiles only if the methods are marked `@Override`
-> Package-private methods are invisible outside their package, so same-named methods in `other` do not override them and the abstract methods stay unimplemented. Adding `@Override` would just add a second error. Make the abstract methods `public` or `protected`.
+> Package-private methods are invisible outside their package, so same-named methods in `other` do not override them and the abstract methods stay unimplemented. Adding `@Override` only adds more errors ("method does not override or implement a method from a supertype"). Make the abstract methods `public` or `protected`.
 
 ## Takeaways
 - Abstraction exposes *what* an object does and hides *how*; callers depend on the abstract type (`ATM atm = new MyATM()`).

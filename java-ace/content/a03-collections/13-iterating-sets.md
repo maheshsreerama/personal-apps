@@ -101,19 +101,19 @@ More in [Fail-Safe Iterators](lesson:a03-collections/23-fail-safe-iterators).
 ## Diagram
 ```mermaid
 sequenceDiagram
-    participant Loop as for-each loop
-    participant Set as HashSet
+    participant F as for-each loop
+    participant S as HashSet
     participant It as Iterator
-    Loop->>Set: iterator()
-    Set-->>Loop: new Iterator (expectedModCount = modCount)
+    F->>S: iterator()
+    S-->>F: new Iterator (expectedModCount = modCount)
     loop until hasNext() is false
-        Loop->>It: hasNext()
-        It-->>Loop: true
-        Loop->>It: next()
-        It-->>Loop: element (checks modCount first)
+        F->>It: hasNext()
+        It-->>F: true
+        F->>It: next()
+        It-->>F: element (checks modCount first)
     end
-    Loop->>It: hasNext()
-    It-->>Loop: false, loop ends
+    F->>It: hasNext()
+    It-->>F: false, loop ends
 ```
 A for-each loop is just `iterator()` followed by repeated `hasNext()`/`next()` calls.
 

@@ -297,7 +297,7 @@ System.out.println(Integer.toHexString(r.codePointAt(0)) + " " + r.substring(2))
 ### [Advanced] How is StringBuilder implemented internally in modern Java?
 `StringBuilder` extends the package-private `AbstractStringBuilder`, which holds `byte[] value`, a `byte coder` (`LATIN1` or `UTF16`, the Compact Strings scheme from Java 9) and an `int count`. While everything is Latin-1 it uses 1 byte per char; the first non-Latin-1 char "inflates" the whole buffer to UTF-16. Growth goes through `ArraysSupport.newLength`, giving `max(2 * old + 2, needed)` and capping near `Integer.MAX_VALUE` (beyond that you get `OutOfMemoryError`). `toString()` copies the used bytes into a new `String`, so later edits cannot affect strings already returned.
 
-**Follow-up:** *Why doesn't `toString()` share the array to save the copy?* — The builder is mutable; sharing would let later appends change an "immutable" `String`. (Java 1.4's `StringBuffer` did share-until-modified; it was dropped because it wasted memory.)
+**Follow-up:** *Why doesn't `toString()` share the array to save the copy?* — The builder is mutable; sharing would let later appends change an "immutable" `String`.
 
 ## Quiz
 ### What does the original example print after `sb.replace(6, 15, "Amazing")`?

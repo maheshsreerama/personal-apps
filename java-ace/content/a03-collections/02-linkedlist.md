@@ -247,7 +247,7 @@ Both return the head without removing it. On an empty list `getFirst()` throws `
 **Follow-up:** *Which one does `element()` behave like?* — `getFirst()`: it throws on an empty queue.
 
 ### [Advanced] Why does LinkedList not implement RandomAccess, and why does it matter?
-`RandomAccess` is a marker interface meaning "positional access is fast". `LinkedList` does not implement it because `get(i)` is O(n). Generic algorithms check for it: `Collections.binarySearch`, for example, uses index-based access for `RandomAccess` lists and an iterator-based version for others, so it does not accidentally become O(n log n) node walking — the iterator version needs O(n) link traversals and O(log n) comparisons.
+`RandomAccess` is a marker interface meaning "positional access is fast". `LinkedList` does not implement it because `get(i)` is O(n). Generic algorithms check for it: `Collections.binarySearch`, for example, uses index-based access for `RandomAccess` lists (and for small lists), but switches to an iterator-based version for large sequential lists (5,000+ elements), so it does not become O(n log n) node walking — the iterator version needs O(n) link traversals and O(log n) comparisons.
 
 **Follow-up:** *How can your own code use it?* — `if (list instanceof RandomAccess) { index loop } else { iterator loop }`.
 

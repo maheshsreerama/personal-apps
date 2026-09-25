@@ -253,7 +253,7 @@ On JDK 21 files default to UTF-8 even though the OS says ASCII; with `COMPAT` (o
 - `System.out.println("Successfully wrote to the file.");` — prints the only console output. It is correctly placed *after* `close()`: only then is the write really complete.
 - `catch (IOException e) { e.printStackTrace(); }` — handles failures such as a missing folder (`FileNotFoundException: ... (No such file or directory)`), a path that is a directory (`(Is a directory)`), or a full disk.
 
-The file now contains the two lines (72 bytes), which is exactly what the next lesson's `FileReaderExample` prints.
+The file now contains the two lines (73 bytes), which is exactly what the next lesson's `FileReaderExample` prints.
 
 ## Traps
 > [!ERRATA] The example closes the writer only on the happy path. If either `write` throws, `writer.close()` is skipped: the file handle leaks and buffered text is lost. Since Java 7 the correct form is try-with-resources: `try (FileWriter writer = new FileWriter("example.txt")) { ... }`, which closes the writer on every path (see [BufferedWriter](lesson:a08-io/04-bufferedwriter) for the full story).
