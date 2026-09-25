@@ -451,7 +451,7 @@ When the data must become visible to someone else **before** you close: interact
 **Follow-up:** *How do you force data onto the physical disk?* — `FileOutputStream.getFD().sync()` or `FileChannel.force(true)`.
 
 ### [Advanced] What does the compiler generate for try-with-resources?
-Roughly: create the resource; run the body inside a `try`; catch any `Throwable` as the primary exception and rethrow it; in the `finally` part, if the resource is non-null, close it — if there was a primary exception, wrap `close()` in its own `try/catch` and call `primary.addSuppressed(closeException)`; otherwise just call `close()`. Multiple resources become nested blocks, which is why closing happens in reverse order. Since JDK 9 the generated code was simplified, but the semantics are the same.
+Roughly: create the resource; run the body inside a `try`; catch any `Throwable` as the primary exception and rethrow it; in the `finally` part, if the resource is non-null, close it — if there was a primary exception, wrap `close()` in its own `try/catch` and call `primary.addSuppressed(closeException)`; otherwise just call `close()`. Multiple resources become nested blocks, which is why closing happens in reverse order. The exact bytecode javac emits has changed between JDK versions, but the semantics are the same.
 
 **Follow-up:** *Can you reassign a resource variable inside the block?* — No, resource variables are implicitly `final`.
 

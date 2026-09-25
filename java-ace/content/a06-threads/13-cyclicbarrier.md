@@ -253,6 +253,8 @@ try {
 } catch (IllegalStateException e) {
     System.out.println("main (ran the action): " + e.getMessage());
 }
+// after other.join():
+System.out.println("isBroken? " + barrier.isBroken());
 ```
 ```output
 other thread: BrokenBarrierException

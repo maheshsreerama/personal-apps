@@ -77,7 +77,7 @@ while (channel.read(buffer) != -1) {   // -1 = end of stream
 | `size()` | Current file size in bytes |
 | `truncate(n)` | Cut the file to `n` bytes (no effect if already smaller); moves position back if it was beyond `n` |
 | `force(metaData)` | Flush OS caches to the storage device (like `fsync`); `true` also flushes metadata such as modification time |
-| `transferTo(pos, count, target)` / `transferFrom(src, pos, count)` | Copy between channels; on Linux can use zero-copy (`sendfile`/`copy_file_range`) so the bytes never enter the JVM. May transfer less than asked — loop |
+| `transferTo(pos, count, target)` / `transferFrom(src, pos, count)` | Copy between channels; on Linux the JDK can use zero-copy system calls such as `sendfile`, so the bytes never enter the JVM. May transfer less than asked — loop |
 | `map(mode, pos, size)` | Memory-map a region as a `MappedByteBuffer` (`READ_ONLY`, `READ_WRITE`, `PRIVATE` copy-on-write); max 2 GB per mapping |
 | `lock()` / `tryLock()` (also region + shared variants) | OS-level `FileLock` between **processes**; `lock()` blocks, `tryLock()` returns `null` if held |
 | `read(ByteBuffer[])` / `write(ByteBuffer[])` | Scatter/gather: fill or drain several buffers in order, e.g. header + body |
@@ -436,7 +436,7 @@ A `Selector` lets one thread monitor many `SelectableChannel`s (sockets, pipes) 
 **Follow-up:** *Why must you call `iterator.remove()`?* — The selector never removes keys from the selected-key set itself; a stale key would be handled again on the next iteration even if the channel is no longer ready.
 
 ### [Intermediate] What is `transferTo` and why is it fast?
-`FileChannel.transferTo(position, count, target)` copies bytes from a file channel to another writable channel (`transferFrom` is the reverse). The JDK can delegate this to the OS (`sendfile` or `copy_file_range` on Linux), so the data moves from the page cache to the socket or file without being copied into JVM memory and back — "zero-copy". That reduces CPU use and context switches; Kafka uses it to serve log segments. It may transfer fewer bytes than requested, so call it in a loop.
+`FileChannel.transferTo(position, count, target)` copies bytes from a file channel to another writable channel (`transferFrom` is the reverse). The JDK can delegate this to the OS (for example `sendfile` on Linux), so the data moves from the page cache to the socket or file without being copied into JVM memory and back — "zero-copy". That reduces CPU use and context switches; Kafka uses it to serve log segments. It may transfer fewer bytes than requested, so call it in a loop.
 
 **Follow-up:** *Other ways to copy a file?* — `Files.copy(src, dst)` (simplest, also OS-optimised), streams with a buffer, or memory mapping.
 
