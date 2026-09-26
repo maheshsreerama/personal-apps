@@ -1,6 +1,6 @@
 ---
 title: WatchService
-group: NIO.2 File System
+group: File Watching
 ---
 
 ## In One Line
@@ -196,7 +196,7 @@ ENTRY_MODIFY -> notes.txt (count 1, exists now: true)
 ENTRY_MODIFY -> notes.txt (count 1, exists now: true)
 ENTRY_DELETE -> notes.txt (count 1, exists now: false)
 ```
-The output varies between runs. In about one run in five the two modifications were merged, because the second arrived before the key had been retrieved:
+The output varies between runs. In some runs (1 of 13 during testing) the two modifications were merged into one event, because the second arrived before the key had been retrieved:
 ```output
 Watching a temp folder
 ENTRY_CREATE -> notes.txt (count 1, exists now: true)

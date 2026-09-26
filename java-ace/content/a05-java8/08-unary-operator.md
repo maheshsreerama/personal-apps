@@ -75,7 +75,7 @@ These are **not** subtypes of `UnaryOperator` or `Function` — they are separat
 | `DoubleStream.map` | `DoubleUnaryOperator` | unit conversions |
 | `AtomicInteger.updateAndGet / getAndUpdate` | `IntUnaryOperator` | lock-free update: `counter.updateAndGet(x -> x * 2)` |
 | `AtomicLong.updateAndGet`, `AtomicReference.updateAndGet` | `LongUnaryOperator`, `UnaryOperator<V>` | `ref.updateAndGet(s -> s + "b")` |
-| `Collections.unmodifiableList(...)`-style wrapping, `String.transform` (Java 12) | — / `Function` | `transform` takes a general `Function`, not a `UnaryOperator` |
+| `String.transform` (Java 12) | `Function<? super String, ? extends R>` | not a `UnaryOperator`: the result may be any type |
 
 `updateAndGet` returns the **new** value; `getAndUpdate` returns the **old** one. The function may be re-applied if another thread wins the race, so it must be side-effect free.
 
