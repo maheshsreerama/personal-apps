@@ -69,7 +69,8 @@ Despite the name, most `ConcurrentModificationException`s happen in **single-thr
 |---|---|
 | `ArrayList`, `LinkedList`, `Vector` (its `iterator()`), `ArrayDeque`, `PriorityQueue` | `CopyOnWriteArrayList`, `CopyOnWriteArraySet` (snapshot) |
 | `HashMap`, `LinkedHashMap`, `TreeMap`, `IdentityHashMap`, `WeakHashMap`, `Hashtable` views | `ConcurrentHashMap`, `ConcurrentSkipListMap/Set`, `ConcurrentLinkedQueue`, blocking queues (weakly consistent) |
-| `HashSet`, `LinkedHashSet`, `TreeSet`, `EnumSet` is **not** — see note | `Vector.elements()`, `Hashtable.keys()/elements()` (legacy `Enumeration`, undefined results) |
+| `HashSet`, `LinkedHashSet`, `TreeSet` | `Vector.elements()`, `Hashtable.keys()/elements()` (legacy `Enumeration`, undefined results) |
+| Collection views (`keySet()`, `values()`, `entrySet()`, `subList`) of the above | `EnumMap`, `EnumSet` (weakly consistent, see note) |
 
 > [!NOTE] `EnumMap` and `EnumSet` iterators are *weakly consistent*: they never throw `ConcurrentModificationException`. Immutable collections (`List.of`, `Map.of`) cannot be modified at all, so the question never arises. The non-fail-fast side is covered in [Fail-safe iterators](lesson:a03-collections/23-fail-safe-iterators).
 

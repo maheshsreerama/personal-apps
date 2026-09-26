@@ -39,7 +39,7 @@ Java platform threads are real OS threads, so the **OS scheduler** decides who r
 | Platform | Default behaviour |
 |---|---|
 | **Linux** | **Ignored.** Normal (non-root) processes use the `SCHED_OTHER` policy, which has no static priorities, so all Java threads get the same native priority. With `-XX:ThreadPriorityPolicy=1` *and* root privileges (or `CAP_SYS_NICE`), HotSpot maps Java priorities to nice values (roughly +4 for priority 1 down to -5 for priority 10). |
-| **Windows** | Mapped onto Windows' 7 thread priority levels (several Java priorities share a level). Honoured, but the OS also boosts and decays priorities dynamically. |
+| **Windows** | Mapped onto the Windows thread priority levels (pairs of Java priorities share a level, e.g. 9 and 10 both map to `THREAD_PRIORITY_HIGHEST`). Honoured, but the OS also boosts and decays priorities dynamically. |
 | **macOS** | Mapped to Mach thread priorities; effect is weak and workload-dependent. |
 
 The flags `-XX:+UseThreadPriorities` (default `true`) and `-XX:ThreadPriorityPolicy` (default `0`) control this. Our measurement (below) on JDK 21 / Linux / 4 cores: with default settings MAX-priority threads did *not* get more CPU than MIN-priority ones; with `-XX:ThreadPriorityPolicy=1` as root they got 2.4–7.4 times more.
@@ -251,7 +251,7 @@ No. Priority is only a hint to the OS scheduler, which may ignore it. On a multi
 **Follow-up:** *So how do you guarantee order?* — With coordination: `join()`, `CountDownLatch`, `CompletableFuture` chains, or by not using threads for work that must be sequential.
 
 ### [Intermediate] How does the JVM implement thread priorities?
-Java platform threads are native OS threads, so the JVM maps each Java priority to a native priority and the OS scheduler does the rest. On Windows, the 10 Java levels map onto Windows' 7 thread priority levels. On Linux, the default `SCHED_OTHER` policy has no static priorities for normal users, so with the default `ThreadPriorityPolicy=0` HotSpot does not change native priorities at all; with `ThreadPriorityPolicy=1` (root or `CAP_SYS_NICE`) it maps priorities to nice values. `-XX:-UseThreadPriorities` disables the mapping everywhere.
+Java platform threads are native OS threads, so the JVM maps each Java priority to a native priority and the OS scheduler does the rest. On Windows, the 10 Java levels map onto the Windows thread priority levels, two Java levels per Windows level. On Linux, the default `SCHED_OTHER` policy has no static priorities for normal users, so with the default `ThreadPriorityPolicy=0` HotSpot does not change native priorities at all; with `ThreadPriorityPolicy=1` (root or `CAP_SYS_NICE`) it maps priorities to nice values. `-XX:-UseThreadPriorities` disables the mapping everywhere.
 
 **Follow-up:** *And virtual threads?* — They are scheduled by the JVM's `ForkJoinPool`-based scheduler, which has no priorities; `getPriority()` always returns 5.
 
