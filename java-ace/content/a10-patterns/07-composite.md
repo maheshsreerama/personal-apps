@@ -258,29 +258,13 @@ company.addEmployee(eng);
 company.addEmployee(dev1);          // the same leaf in two places
 eng.removeEmployee(dev2);
 company.showEmployeeDetails();
-
-System.out.println("--- cycle ---");
-company.addEmployee(company);
-try {
-    company.showEmployeeDetails();
-} catch (StackOverflowError e) {
-    System.out.println("StackOverflowError");
-}
 ```
 ```output
 200 Mike Smith SEO Manager
 100 John Doe Pro Developer
 100 John Doe Pro Developer
---- cycle ---
-200 Mike Smith SEO Manager
-100 John Doe Pro Developer
-100 John Doe Pro Developer
-200 Mike Smith SEO Manager
-100 John Doe Pro Developer
-100 John Doe Pro Developer
-StackOverflowError
 ```
-(`dev1`, `dev2`, `man1` are the objects from the original `main`. The cycle part is shortened here: the real run printed the three lines over and over — about 19,000 times — before the stack overflowed.)
+(`dev1`, `dev2`, `man1` are the objects from the original `main`.) Continuing the same run with `company.addEmployee(company); company.showEmployeeDetails();` inside a `try`/`catch (StackOverflowError e)` printed those three lines over and over — about 19,000 times — before the stack overflowed and the `catch` ran.
 
 ## Walkthrough
 - `import java.util.ArrayList; import java.util.List;` — for the composite's child list.

@@ -104,7 +104,7 @@ A parent constructor that calls an overridden method runs the **child's** versio
 | How many | Any number; run in textual order | Any number; run in textual order |
 
 ### When static initialisation fails
-If a static initialiser throws, the JVM wraps the exception in **`ExceptionInInitializerError`** (its `getCause()` is the original) and marks the class as **erroneous**. Every later attempt to use the class throws **`NoClassDefFoundError: Could not initialize class X`** — the static initialiser is never retried. On recent JDKs (JDK 18+) that `NoClassDefFoundError` carries the original failure as its cause; on older JDKs you had to find the first `ExceptionInInitializerError` in the log.
+If a static initialiser throws, the JVM wraps the exception in **`ExceptionInInitializerError`** (its `getCause()` is the original) and marks the class as **erroneous**. Every later attempt to use the class throws **`NoClassDefFoundError: Could not initialize class X`** — the static initialiser is never retried. On recent JDKs (for example the JDK 21 run below) that `NoClassDefFoundError` carries the original failure as its cause; on older JDKs you had to find the first `ExceptionInInitializerError` in the log.
 
 ### Class initialisation is thread-safe
 The JVM runs `<clinit>` under a per-class initialisation lock: if several threads trigger initialisation at once, one runs it and the others wait, and all of them then see the fully initialised static state. This is why the **initialisation-on-demand holder** idiom is a lazy, thread-safe singleton without `synchronized`:
@@ -545,7 +545,7 @@ On the first active use: creating an instance, calling a static method, assignin
 **Follow-up:** *What's the risk of inlined constants?* — If the constant's value changes and dependent classes aren't recompiled, they keep using the old value.
 
 ### [Intermediate] What happens if an exception is thrown in a static block?
-It can't be a checked exception — the compiler rejects that. A runtime exception is wrapped by the JVM in `ExceptionInInitializerError`, and the class is marked as erroneous. Any later attempt to use the class throws `NoClassDefFoundError: Could not initialize class X`; initialisation is never retried (on JDK 18+ that error's cause records the original failure). A static block that can never complete normally, like `static { throw new RuntimeException(); }`, doesn't even compile: *initializer must be able to complete normally*.
+It can't be a checked exception — the compiler rejects that. A runtime exception is wrapped by the JVM in `ExceptionInInitializerError`, and the class is marked as erroneous. Any later attempt to use the class throws `NoClassDefFoundError: Could not initialize class X`; initialisation is never retried (on recent JDKs such as 21, that error's cause records the original failure). A static block that can never complete normally, like `static { throw new RuntimeException(); }`, doesn't even compile: *initializer must be able to complete normally*.
 
 **Follow-up:** *How do you debug a `NoClassDefFoundError: Could not initialize class`?* — Find the first occurrence of `ExceptionInInitializerError` for that class in the logs; its cause is the real bug.
 
