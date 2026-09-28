@@ -77,7 +77,7 @@ The logic only goes one way: **same hash does not mean equal** (`"Aa"` and `"BB"
 So `equals` is only ever called on keys whose hash codes already match. Consequences:
 - **Override `equals` but not `hashCode`:** two equal keys get different identity hashes → different buckets (or at least different stored hashes) → `equals` is never called → `HashSet` stores "duplicates", `map.get(equalKey)` returns `null`.
 - **Override `hashCode` but not `equals`:** equal keys reach the same bucket, but `Object.equals` (identity) says "different" → duplicates again.
-- **Constant `hashCode` (`return 42;`):** legal and correct, but every key lands in one bucket → lookups degrade from O(1) to O(n) (O(log n) once Java 8 turns a crowded bucket into a red-black tree, which happens at 8 entries in a bucket when the table has at least 64 slots).
+- **Constant `hashCode` (`return 42;`):** legal and correct, but every key lands in one bucket → lookups degrade from O(1) to O(n). Java 8 turns a bucket that grows beyond 8 entries (`TREEIFY_THRESHOLD`) into a red-black tree once the table has at least 64 slots, which brings it down to O(log n) — but only if the keys are `Comparable`.
 
 The internals (resize, treeification, `null` key) are in [HashMap Internals](lesson:b04-collections-internals/01-hashmap-internals).
 
@@ -224,8 +224,8 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    K1["new Key(E42)"] -->|"identity hash 0x3b93..."| B1["bucket 3"]
-    K2["another new Key(E42)"] -->|"identity hash 0x12a3..."| B2["bucket 0"]
+    K1["new Key(E42)"] -->|"identity hash 0x3b93..."| B1["bucket i"]
+    K2["another new Key(E42)"] -->|"identity hash 0x12a3..."| B2["bucket j"]
     B1 --> R["HashSet size 2, get() returns null"]
     B2 --> R
 ```
@@ -783,10 +783,10 @@ Object has 11 methods: `equals`, `hashCode`, `toString`, `getClass`, `clone`, `f
 ### [Intermediate] Should `equals` use `instanceof` or `getClass()`?
 `instanceof` lets subclass instances be equal to parent instances. It is Liskov-friendly (a subclass that only adds behaviour still works as a map key) and works with framework proxies, but it breaks symmetry or transitivity if a subclass adds a field to `equals`. `getClass()` requires the exact same runtime class: symmetric even with subclasses, but a subclass can never equal its parent, which violates Liskov and breaks with Hibernate/Mockito proxies. *Effective Java* shows no approach lets you extend an instantiable class, add a value component and keep the contract. So: make value classes `final` (or records) and use `instanceof`; prefer composition over inheritance when you need "a Point plus a colour".
 
-**Follow-up:** *Which does the JDK use?* — Mostly `instanceof` (e.g. `String`, `AbstractList`, `AbstractSet`); records' generated `equals` checks the exact record class, which is fine because records are final.
+**Follow-up:** *Which does the JDK use?* — Mostly `instanceof` (e.g. `String`, `AbstractList`, `AbstractSet`); records' generated `equals` accepts only instances of the same record class — the same thing either way, because records are final.
 
 ### [Intermediate] What happens inside `HashMap.get()`, and where do `hashCode` and `equals` come in?
-`get(key)` calls `key.hashCode()`, spreads it with `h ^ (h >>> 16)` so high bits influence the index, computes the bucket index `(n - 1) & hash`, and walks that bucket. For each node it first compares the stored hash, and only if the hashes match does it check `node.key == key || key.equals(node.key)`. So `hashCode` decides *where to look* and filters candidates cheaply; `equals` decides *which* entry it is. A `null` key gets hash 0 and is found with `==`. In Java 8+, a bucket with 8 or more nodes (in a table of at least 64 slots) becomes a red-black tree, turning worst-case lookups from O(n) into O(log n).
+`get(key)` calls `key.hashCode()`, spreads it with `h ^ (h >>> 16)` so high bits influence the index, computes the bucket index `(n - 1) & hash`, and walks that bucket. For each node it first compares the stored hash, and only if the hashes match does it check `node.key == key || key.equals(node.key)`. So `hashCode` decides *where to look* and filters candidates cheaply; `equals` decides *which* entry it is. A `null` key gets hash 0 and is found with `==`. In Java 8+, a bucket that grows beyond 8 nodes (in a table of at least 64 slots; smaller tables resize instead) becomes a red-black tree, turning worst-case lookups from O(n) into O(log n) for `Comparable` keys.
 
 **Follow-up:** *What if every key returns the same hashCode?* — The map still works correctly, but all entries share one bucket: O(n) per lookup, or O(log n) if the bucket is treeified and the keys are `Comparable`.
 

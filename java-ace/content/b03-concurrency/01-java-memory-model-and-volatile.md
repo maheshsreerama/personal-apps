@@ -248,10 +248,10 @@ public class VisibilityDemo {
 ```
 ```output
 plain flag:    worker alive after 2 s? true
-volatile flag: worker alive after 2 s? false
 volatile worker stopped
+volatile flag: worker alive after 2 s? false
 ```
-The same output appeared in every run on JDK 21 (HotSpot, x86-64), except that the last two lines can swap places — the worker's print and `main`'s print race each other. The JMM does not *promise* the plain worker hangs; it merely allows it. Run the same class with `java -Xint` (interpreter only, no JIT) and the plain worker usually does stop:
+The same output appeared in every run on JDK 21 (HotSpot, x86-64). `volatile worker stopped` always comes before `main`'s last line, because `vol.join(2000)` only returns early once the worker has finished, and the join rule makes its print happen first. The JMM does not *promise* the plain worker hangs; it merely allows it. Run the same class with `java -Xint` (interpreter only, no JIT) and the plain worker usually does stop:
 ```output
 plain worker saw the flag after 58453812 spins
 plain flag:    worker alive after 2 s? false
