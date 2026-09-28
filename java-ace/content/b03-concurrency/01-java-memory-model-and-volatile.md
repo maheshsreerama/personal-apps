@@ -111,7 +111,7 @@ Classic good uses:
 The JMM is specified abstractly, but the JSR-133 Cookbook describes how JVMs implement it with four barrier kinds — **LoadLoad, LoadStore, StoreStore, StoreLoad**:
 - **volatile write**: StoreStore before it (earlier writes cannot sink below), **StoreLoad** after it (the expensive one: drains the store buffer before any later read).
 - **volatile read**: LoadLoad and LoadStore after it (later reads/writes cannot float above).
-- On **x86** (a strong, TSO machine) only StoreLoad needs a real instruction, so HotSpot emits a `lock`-prefixed instruction (for example `lock addl $0, (rsp)`) after a volatile store; a volatile load is an ordinary `mov`. On **AArch64** HotSpot uses the acquire/release instructions `ldar` and `stlr`.
+- On **x86** (a strong, TSO machine) only StoreLoad needs a real instruction, so HotSpot emits a `lock`-prefixed instruction (a no-op `lock addl $0` on a stack slot) after a volatile store; a volatile load is an ordinary `mov`. On **AArch64** HotSpot uses the acquire/release instructions `ldar` and `stlr`.
 - The barriers also stop the **JIT** from reordering or caching the accesses — on x86 that is most of the cost of a volatile read.
 
 ### Java 9+: `VarHandle` access modes
@@ -588,7 +588,7 @@ static Singleton getInstance() {
 **Follow-up:** *What would you use instead?* — The initialization-on-demand holder idiom or an `enum` singleton: both are lazy enough, thread-safe through class initialization, and need no `volatile`.
 
 ### [Advanced] How is `volatile` implemented under the hood?
-The JVM inserts memory barriers around volatile accesses (JSR-133 Cookbook): a StoreStore barrier before and a StoreLoad barrier after a volatile write; LoadLoad and LoadStore barriers after a volatile read. The barriers also stop the JIT from moving other memory accesses across them or caching the field in a register. On x86, which only reorders stores with later loads, HotSpot emits a real instruction only for the StoreLoad — a `lock`-prefixed instruction such as `lock addl $0,(rsp)` after the volatile store — while volatile loads are plain `mov`s. On AArch64 it uses `ldar` (load-acquire) and `stlr` (store-release).
+The JVM inserts memory barriers around volatile accesses (JSR-133 Cookbook): a StoreStore barrier before and a StoreLoad barrier after a volatile write; LoadLoad and LoadStore barriers after a volatile read. The barriers also stop the JIT from moving other memory accesses across them or caching the field in a register. On x86, which only reorders stores with later loads, HotSpot emits a real instruction only for the StoreLoad — a `lock`-prefixed no-op (`lock addl $0` on a stack slot) after the volatile store — while volatile loads are plain `mov`s. On AArch64 it uses `ldar` (load-acquire) and `stlr` (store-release).
 
 **Follow-up:** *Does `volatile` "flush the CPU cache to main memory"?* — That is a common simplification. Caches are kept coherent by hardware (MESI); what the barriers actually drain is the store buffer and what they prevent is compiler caching and reordering.
 
