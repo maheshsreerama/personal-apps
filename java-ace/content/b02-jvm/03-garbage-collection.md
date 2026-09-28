@@ -52,7 +52,7 @@ The **weak generational hypothesis**: *most objects die young* (temporary string
 
 - **Young generation** = **Eden** + two **survivor** spaces (S0/"from" and S1/"to"). New objects are allocated in Eden (in TLABs).
 - **Minor (young) GC** — when Eden is full: live objects from Eden and the "from" survivor are **copied** into the "to" survivor, their **age** (stored in 4 bits of the mark word) goes up by one, then Eden and "from" are empty and the survivors swap roles. Cost depends only on the (small) number of survivors.
-- **Promotion (tenuring)** — an object whose age reaches the **tenuring threshold** (max 15, `-XX:MaxTenuringThreshold`; the JVM lowers it dynamically when survivors fill up) is copied to the **old generation**. Survivors that do not fit are promoted early (*premature promotion*).
+- **Promotion (tenuring)** — an object whose age reaches the **tenuring threshold** (`-XX:MaxTenuringThreshold`, default 15; the JVM lowers the actual threshold dynamically when survivors fill up) is copied to the **old generation**. The flag accepts 0–16: 0 promotes at the first GC, and 16 — one more than the largest age the 4 header bits can hold — means "never promote because of age". Survivors that do not fit are promoted early (*premature promotion*).
 - **Major / full GC** — collects the old generation (Full GC = whole heap, usually with compaction). Much more expensive because old objects are mostly alive.
 - **Old-to-young references**: a minor GC must not scan the whole old generation to find references into the young one. A **write barrier** marks the 512-byte **card** of the old object as dirty whenever a reference field is written; the minor GC scans only dirty cards (G1 keeps per-region **remembered sets** built the same way).
 
@@ -112,7 +112,7 @@ A sane process:
 |---|---|
 | `-Xms` / `-Xmx` | initial / maximum heap |
 | `-Xmn`, `-XX:NewRatio`, `-XX:SurvivorRatio` | young-generation size (avoid `-Xmn` with G1: it disables G1's adaptive sizing) |
-| `-XX:MaxTenuringThreshold=n` | max age before promotion (0–15) |
+| `-XX:MaxTenuringThreshold=n` | age at which survivors are promoted (default 15; allowed 0–16, 16 = never by age) |
 | `-XX:MaxGCPauseMillis=n` | G1 pause-time goal (default 200) |
 | `-XX:ParallelGCThreads`, `-XX:ConcGCThreads` | STW and concurrent GC worker threads |
 | `-XX:InitiatingHeapOccupancyPercent` | G1 start of concurrent marking (45%, adaptive) |
@@ -251,7 +251,7 @@ child of a live holder       : alive
 local holder
 ```
 
-**2. Which collector am I running?** `WhichGc.java` allocates 200 MB, keeps 2 MB, and lists the collector beans. Run with `java -Xmx64m <flag> WhichGc`.
+**2. Which collector am I running?** `WhichGc.java` allocates 200 MB, keeps 2 MB, and lists the collector beans. Run with `java -Xmx64m <flag> WhichGc` once per collector (the `==` lines below were printed by the shell loop, not by the program).
 ```java
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -281,7 +281,7 @@ kept 2000 chunks
 kept 2000 chunks
   PS MarkSweep             collections=0
   PS Scavenge              collections=12
-== -XX:+UseG1GC (the default)
+== -XX:+UseG1GC
 kept 2000 chunks
   G1 Young Generation      collections=6
   G1 Concurrent GC         collections=0
@@ -468,7 +468,7 @@ Fin.java:3: warning: [removal] finalize() in Object has been deprecated and mark
 - Collected/alive results were identical with Serial, Parallel and ZGC.
 
 **WhichGc**
-- The bean names reveal the collector: Serial = `Copy` (young, copying) + `MarkSweepCompact` (old); Parallel = `PS Scavenge` + `PS MarkSweep`; G1 = `G1 Young Generation` (young and mixed pauses), `G1 Concurrent GC` (concurrent cycles, new in JDK 20) and `G1 Old Generation` (full GCs); ZGC and Shenandoah count **cycles** (mostly concurrent) and **pauses** separately.
+- The bean names reveal the collector: Serial = `Copy` (young, copying) + `MarkSweepCompact` (old); Parallel = `PS Scavenge` + `PS MarkSweep`; G1 = `G1 Young Generation` (young and mixed pauses), `G1 Concurrent GC` (the Remark and Cleanup pauses of concurrent cycles; added in JDK 20) and `G1 Old Generation` (full GCs); ZGC and Shenandoah count **cycles** (mostly concurrent) and **pauses** separately.
 - All the collectors needed only young collections: 99% of the 200 MB died young — the generational hypothesis at work.
 - The **collection counts vary** between runs and machines (they depend on heap sizing ergonomics and timing); the names do not.
 - **Epsilon** never frees anything, so allocating 200 MB in a 64 MB heap ends the JVM: `Terminating due to java.lang.OutOfMemoryError: Java heap space`.
@@ -511,7 +511,7 @@ Fin.java:3: warning: [removal] finalize() in Object has been deprecated and mark
 - **Too-small heap with a concurrent collector** (ZGC, Shenandoah, G1) → allocation stalls or full GCs. Low-pause collectors trade memory for latency.
 - **`finalize()` for cleanup**: may never run, runs on one thread (a slow finalizer backs up the queue and leaks memory), and can resurrect the object. Use try-with-resources and `Cleaner`.
 - **Relying on GC timing in tests** (`System.gc(); assertNull(weak.get())`) is flaky across collectors and flags; loop with a timeout if you must.
-- **Old flags on new JVMs**: `-XX:+UseConcMarkSweepGC` (CMS) makes JDK 14+ print a warning and fall back to the default collector; `-XX:+PrintGCDetails` is mapped to `-Xlog:gc*` with a warning.
+- **Old flags on new JVMs**: `-XX:+UseConcMarkSweepGC` (CMS) was only ignored with a warning in JDK 14–16; on JDK 21 it is fatal — `Unrecognized VM option 'UseConcMarkSweepGC'` and the JVM does not start. `-XX:+PrintGCDetails` still works but prints `-XX:+PrintGCDetails is deprecated. Will use -Xlog:gc* instead.`
 
 > [!WARNING] `MaxGCPauseMillis` and "sub-millisecond" pauses are about GC **pauses** only. Allocation stalls (ZGC), time-to-safepoint delays and a Full GC fallback can still produce long hiccups — always check the logs, not the flags.
 
@@ -651,12 +651,12 @@ x = new Box();       // X2
 - [ ] Any array, regardless of size
 > An object is humongous when it is at least **half a region** — 1 MB with 2 MB regions. It is allocated directly in contiguous old-generation regions. 512 KB is below the threshold; age has nothing to do with it.
 
-### Why can the object age stored in the header never exceed 15?
+### Why can the GC age stored in an object's header never exceed 15?
 - [ ] Because survivors are cleared every 15 GCs
-- [x] Because the age uses 4 bits of the mark word, so `MaxTenuringThreshold` is limited to 0–15
+- [x] Because the age is kept in 4 bits of the mark word
 - [ ] Because G1 has only 15 survivor regions
 - [ ] It can: the default threshold is 31
-> The mark word reserves 4 bits for the GC age, so the tenuring threshold ranges from 0 to 15 (default 15). Setting a larger value is rejected at start-up. Survivors are not cleared on a schedule.
+> Four bits hold 0–15, so the default `MaxTenuringThreshold` is 15. On JDK 21 the flag accepts 0–16 (`-XX:MaxTenuringThreshold=17` fails with `outside the allowed range [ 0 ... 16 ]`); 16 can never be reached by an age, so it means "never promote because of age". Survivors are not cleared on a schedule, and 31 would need 5 bits.
 
 ## Takeaways
 - An object is garbage when no chain of references leads to it from a GC root (locals of active frames, statics, live threads, JNI refs, monitors); cycles are collected because Java traces instead of counting references.
