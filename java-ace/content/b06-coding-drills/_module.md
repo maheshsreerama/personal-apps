@@ -17,10 +17,10 @@ blurb: Hands-on interview programs — streams, strings, arrays, collections, th
 - n-th highest: distinct → sorted desc → skip(n-1) → findFirst
 ## Classic Programs
 ### [String Programs](lesson:b06-coding-drills/03-string-programs)
-- Strings are immutable: build results with StringBuilder
-- Count characters with int[26]/int[128] or a map
-- Two pointers for palindromes and reversals
-- Normalise case and spaces before comparing
+- Immutable: build with StringBuilder, compare with equals
+- Chars are numbers: c - 'a' indexes int[26], c - '0' is the digit
+- Two pointers for reverse/palindrome; sliding window for longest unique substring
+- split takes a regex and drops trailing empty strings
 ### [Array & Number Programs](lesson:b06-coding-drills/04-array-and-number-programs)
 - One pass with running max/min beats sorting
 - Two pointers and HashSet lookups turn O(n²) into O(n)
