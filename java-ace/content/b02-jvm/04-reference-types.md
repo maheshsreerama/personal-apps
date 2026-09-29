@@ -449,7 +449,7 @@ true
 - **Always the `get()`-once idiom:** `var v = ref.get(); if (v != null) { ... }`.
 - **Test code with references:** call `System.gc()` in a loop with a short sleep until `ref.refersTo(null)`, with a time limit — never assume one call is enough on every collector.
 - **Cleaner checklist**: one shared `static final Cleaner`; action in a `static` nested class (or a lambda capturing only locals); keep the `Cleanable`; call `clean()` from `close()`; still use try-with-resources.
-- **See the queue in action**: `-Xlog:gc+ref=debug` logs how many soft, weak, final and phantom references each GC discovered and cleared.
+- **See reference processing in the GC log**: `-Xlog:gc+phases+ref=debug` prints, for every GC, lines such as `WeakReference Discovered: 2, Dropped: 1, Processed: 1` for soft, weak, final and phantom references.
 
 ## Interview Q&A
 ### [Basic] What are the four types of references in Java?

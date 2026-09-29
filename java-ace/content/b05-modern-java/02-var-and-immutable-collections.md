@@ -150,8 +150,8 @@ Both are varargs methods. With an **object** array (`Integer[]`) the array is sp
 ## Diagram
 ```mermaid
 flowchart LR
-    A["var list = new ArrayList&lt;String&gt;()"] --> B["javac reads the<br/>initializer's static type"]
-    B --> C["ArrayList&lt;String&gt; list"]
+    A["var total = 10L"] --> B["javac reads the<br/>initializer's static type"]
+    B --> C["long total"]
     C --> D["same bytecode as the<br/>explicit declaration"]
     B -->|"no initializer, null,<br/>lambda, {1, 2}"| E["compile error:<br/>cannot infer type"]
 ```
