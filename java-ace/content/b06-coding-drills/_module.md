@@ -22,10 +22,10 @@ blurb: Hands-on interview programs — streams, strings, arrays, collections, th
 - Two pointers for reverse/palindrome; sliding window for longest unique substring
 - split takes a regex and drops trailing empty strings
 ### [Array & Number Programs](lesson:b06-coding-drills/04-array-and-number-programs)
-- One pass with running max/min beats sorting
-- Two pointers and HashSet lookups turn O(n²) into O(n)
-- Digits: n % 10 and n / 10; watch int overflow
-- Math tricks: sum formula for missing number, XOR for pairs
+- One pass with trackers: second largest, min/max, Kadane (extend or restart)
+- Two-sum: check the complement, then put; two pointers for reverse, merge, move zeros
+- Rotate = reverse all, first k, rest; missing number = n(n+1)/2 in long, or XOR
+- Digits via % 10 and / 10; primes up to √n or sieve; overflow is silent (12!, 20!, lo + (hi - lo) / 2)
 ## Collections & Threads
 ### [Collections Programs](lesson:b06-coding-drills/05-collections-programs)
 - Count → HashMap + merge; first-seen order → LinkedHashMap/Set
