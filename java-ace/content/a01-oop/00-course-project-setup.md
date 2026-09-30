@@ -426,8 +426,11 @@ $ mvn test
 [INFO] 
 [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
 [INFO] 
+[INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
 ```
+(The earlier compile lines and the timing footer are left out; the elapsed time differs on every run.)
 Or, without Maven, with JUnit 3's own text runner:
 ```output
 $ java -cp junit-3.8.1.jar:target/test-classes junit.textui.TestRunner org.example.AppTest
