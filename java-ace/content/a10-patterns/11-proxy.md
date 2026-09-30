@@ -158,6 +158,7 @@ A call from inside the target (`this.audit()`) never passes through the proxy, s
 
 **When exactly does loading happen?** A marker line between construction and the first call (the course's classes copied into one file):
 ```java
+// Reuses the course's classes from the example above: save it in the same package as that file.
 public class WhenLoaded {
     public static void main(String[] args) {
         Image image = new ProxyImage("test_10mb.jpg");

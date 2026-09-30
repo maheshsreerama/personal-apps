@@ -163,6 +163,7 @@ With "after" decorators the innermost extra prints first; swapping the wrapping 
 
 **Stacking decorators — order matters, and a wrapper is not the original** (the course's classes copied into one file, plus a second decorator):
 ```java
+// Reuses the course's classes from the example above: save it in the same package as that file.
 class ShadowDecorator extends ShapeDecorator {
     ShadowDecorator(Shape2 inner) { super(inner); }
     @Override public void draw() {

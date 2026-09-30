@@ -156,6 +156,9 @@ The correct split (the `Forest` example in Code): many small context objects hol
 
 **The bug hiding in the course version** — extrinsic state stored inside a shared object (the course's classes copied into the file):
 ```java
+// Reuses the course's classes from the example above: save it in the same package as that file.
+import java.util.List;
+
 public class SharedStateBug {
     public static void main(String[] args) {
         Circle4 a = (Circle4) ShapeFactory.getCircle("Red");

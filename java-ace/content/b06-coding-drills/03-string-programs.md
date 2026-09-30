@@ -949,7 +949,7 @@ public class RemoveWhitespace {
         System.out.println("[" + s.trim().replaceAll("\\s+", " ") + "]");   // normalise: single spaces
 
         // trim() vs strip() (Java 11): trim only removes chars <= ' '
-        String em = " hi ";                                       // EM SPACE on both sides
+        String em = "\u2003hi\u2003";                                 // EM SPACE on both sides
         System.out.println("trim  length: " + em.trim().length());
         System.out.println("strip length: " + em.strip().length());
         System.out.println("isBlank     : " + " \t\n".isBlank());           // Java 11
