@@ -37,7 +37,7 @@ Primitives exist for **speed and memory**: an `int` is 4 bytes stored directly i
 | `long` | 64 bits | −2⁶³ to 2⁶³−1 (about ±9.2 × 10¹⁸) | `0L` | `Long` | `42L` (always capital `L`) |
 | `float` | 32 bits | IEEE 754, ~6–7 significant decimal digits, max ≈ 3.4 × 10³⁸ | `0.0f` | `Float` | `3.14f` |
 | `double` | 64 bits | IEEE 754, ~15–16 significant digits, max ≈ 1.8 × 10³⁰⁸ | `0.0d` | `Double` | `3.14`, `3.14d`, `1e-9` |
-| `char` | 16 bits | **unsigned** 0 to 65 535 — one UTF-16 code unit | `'\u0000'` | `Character` | `'A'`, `'A'`, `'\n'`, `65` |
+| `char` | 16 bits | **unsigned** 0 to 65 535 — one UTF-16 code unit | `'\u0000'` | `Character` | `'A'`, `'\u0041'`, `'\n'`, `65` |
 | `boolean` | not specified | `true` / `false` | `false` | `Boolean` | `true` |
 
 Things interviewers probe:
@@ -188,7 +188,7 @@ public class PrimitiveTour {
         int hex = 0xFF, oct = 010, bin = 0b1010, million = 1_000_000;
         long big = 9_000_000_000L;          // without L: "integer number too large"
         float price = 9.99f;                // without f: "possible lossy conversion from double to float"
-        char letter = 'A', unicode = 'B', fromInt = 67;
+        char letter = 'A', unicode = '\u0042', fromInt = 67;
         System.out.println(hex + " " + oct + " " + bin + " " + million + " " + big + " " + price);
         System.out.println(letter + " " + unicode + " " + fromInt);
     }
@@ -420,7 +420,7 @@ long
 - `new int[3]` and `new boolean[2]` show that **array elements** also get defaults. `Arrays.toString` formats an array as `[a, b, c]` (printing the array directly would show something like `[I@1b6d3586`).
 - `0xFF` = 255 (hex), `010` = **8** (a leading zero means octal!), `0b1010` = 10 (binary), `1_000_000` — underscores are only for readability.
 - `9_000_000_000L` needs `L` because the value exceeds `int`; `9.99f` needs `f` because `9.99` is a `double` literal.
-- `'B'` is a Unicode escape for `B`; `fromInt = 67` compiles because 67 is a constant that fits in `char` (it is `C`).
+- `'\u0042'` is a Unicode escape for `B`; `fromInt = 67` compiles because 67 is a constant that fits in `char` (it is `C`).
 
 **CastingDemo**
 - `float asFloat = 123_456_789;` compiles (widening) but prints `1.2345679E8`; casting back gives `123456792` — **not** the original. A `float` holds only ~7 significant digits. `double` holds it exactly.

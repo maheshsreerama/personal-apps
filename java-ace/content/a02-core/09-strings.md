@@ -38,7 +38,7 @@ Before Java 9 every character took 2 bytes (`char[]`). Most real-world strings a
 
 | Content | `coder` | Bytes per char |
 |---|---|---|
-| Every char fits in Latin-1 (`\u0000`–`ÿ`), e.g. `"Hello World"` | `LATIN1` | 1 |
+| Every char fits in Latin-1 (`\u0000`–`\u00FF`), e.g. `"Hello World"` | `LATIN1` | 1 |
 | Any char outside Latin-1, e.g. `"नमस्ते"` or an emoji | `UTF16` | 2 |
 
 It is completely invisible to your code — `length()`, `charAt()` and friends behave exactly as before. It can be switched off with `-XX:-CompactStrings`.

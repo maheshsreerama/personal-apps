@@ -421,7 +421,6 @@ TreeSet: copy of the HashSet           hashCode=0     equals=0     compareTo=148
 **3. Memory per element** (1,000,000 `Integer` keys created beforehand, so only the structures are measured):
 ```java
 import java.lang.management.ManagementFactory;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
