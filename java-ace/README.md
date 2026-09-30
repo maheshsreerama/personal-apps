@@ -2,7 +2,8 @@
 
 An offline Android app for learning Java deeply and preparing for interviews. It teaches every
 example from the HungryCoders Java course (Track A) plus the interview essentials the course doesn't
-cover (Track B).
+cover (Track B): 185 lessons, 1,858 interview Q&As with model answers, 1,301 quiz questions and
+472 diagrams.
 
 Every lesson has: a one-line summary, a mental model, a concept deep dive, hand-drawn (Excalidraw-style)
 diagrams, the original example with its **real output** (recorded on JDK 21), a walkthrough, traps and
@@ -32,6 +33,7 @@ cd web && npm ci && npm run build          # builds into android/app/src/main/as
 cd ../android && ./gradlew assembleRelease # APK in app/build/outputs/apk/release/
 ```
 
-CI (`.github/workflows/java-ace-release.yml`) does both on every push to `java-ace/` and publishes the
+CI (`.github/workflows/java-ace-release.yml`) does both on every push to `java-ace/`, fails if
+`tools/verify.mjs` finds a malformed lesson or a course example that isn't taught, and publishes the
 APK as release `java-ace-v<versionName>`. Bump `versionName`/`versionCode` in `android/app/build.gradle`
 for a new release.
